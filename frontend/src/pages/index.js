@@ -6,3 +6,4 @@ export { default as Dataset } from './Dataset';
 export { default as Testing } from './Testing';
 export { default as Playground } from './Playground';
 export { default as Docs } from './Docs';
+export { default as APIMonitor } from './APIMonitor';

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from app.routes import (
     health_router,
@@ -10,8 +11,10 @@ from app.routes import (
     playground_router,
     docs_router,
     merchant_sim_router,
+    monitor_router,
 )
 from app.services import bot_state, ContextStore, ConversationManager, CompositionService
+from app.middleware.request_logger_middleware import RequestLoggingMiddleware
 import os
 from pathlib import Path
 
@@ -31,6 +34,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware (must be added AFTER CORS)
+app.add_middleware(RequestLoggingMiddleware)
 
 
 @app.on_event("startup")
@@ -76,6 +82,7 @@ app.include_router(dataset_router)
 app.include_router(playground_router)
 app.include_router(docs_router)
 app.include_router(merchant_sim_router)
+app.include_router(monitor_router)
 
 
 @app.get("/")

@@ -12,6 +12,7 @@ import Docs from './pages/Docs';
 import Runner from './pages/Runner';
 import FAQ from './pages/FAQ';
 import MerchantChat from './pages/MerchantChat';
+import APIMonitor from './pages/APIMonitor';
 import './App.css';
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
         {currentPage === 'testing' && <Testing />}
         {currentPage === 'settings' && <Settings metadata={metadata} />}
         {currentPage === 'merchant-chat' && <MerchantChat />}
+        {currentPage === 'api-monitor' && <APIMonitor />}
       </div>
     </Layout>
   );

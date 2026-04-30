@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, MessageSquare, BarChart3, Settings, Database, Beaker, Sparkles, BookOpen, MessageCircle } from 'lucide-react';
+import { Home, MessageSquare, BarChart3, Settings, Database, Beaker, Sparkles, BookOpen, MessageCircle, Activity } from 'lucide-react';
 import './Sidebar.css';
 
 function Sidebar({ currentPage, setCurrentPage }) {
@@ -10,6 +10,7 @@ function Sidebar({ currentPage, setCurrentPage }) {
     { id: 'analytics', label: '📈 Insights', icon: BarChart3 },
     { id: 'dataset', label: '📚 Dataset', icon: Database },
     { id: 'playground', label: '🧠 Playground', icon: Sparkles },
+    { id: 'api-monitor', label: '🔍 API Monitor', icon: Activity },
     { id: 'runner', label: '🧪 Runner', icon: Beaker },
     { id: 'docs', label: '📄 Docs', icon: BookOpen },
     { id: 'faq', label: '🧾 Submit', icon: BookOpen },
