@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './MerchantChat.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const IS_LOCAL = API_BASE.includes('localhost') || API_BASE.includes('127.0.0.1');
 
 const MERCHANTS = [
   { id: 'm_001_drmeera_dentist_delhi', name: 'Dr. Meera', category: 'dentists', city: 'Delhi', icon: '🦷', color: '#6366f1' },
@@ -266,6 +267,7 @@ function MerchantChat() {
           </div>
         </div>
         <div className="chat-actions">
+          <span className="api-url-badge">{API_BASE.replace(/https?:\/\//, '')}</span>
           <button className="btn-ghost" onClick={() => setShowTour(true)}>
             <span className="btn-icon">❓</span>How to Use
           </button>
@@ -439,12 +441,18 @@ function MerchantChat() {
           <div className="info-card card-ollama">
             <div className="card-header">
               <h3>Ollama Sim</h3>
+              {!IS_LOCAL && <span className="ollama-local-only">Local only</span>}
               <label className="toggle-switch">
-                <input type="checkbox" checked={ollamaMode} onChange={e => setOllamaMode(e.target.checked)} />
+                <input type="checkbox" checked={ollamaMode} onChange={e => setOllamaMode(e.target.checked)} disabled={!IS_LOCAL} />
                 <span className="toggle-slider" />
               </label>
             </div>
-            {ollamaMode && (
+            {!IS_LOCAL && (
+              <div className="ollama-warning">
+                Requires local Ollama server at localhost:11434. Not available in cloud.
+              </div>
+            )}
+            {ollamaMode && IS_LOCAL && (
               <div className="ollama-speed">
                 {['slow', 'normal', 'fast'].map(s => (
                   <button key={s} className={`speed-btn ${ollamaSpeed === s ? 'active' : ''}`} onClick={() => setOllamaSpeed(s)}>

@@ -7,6 +7,14 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)]()
 [![React](https://img.shields.io/badge/React-18+-61dafb)]()
 
+## Live Deployment
+
+| Service | URL |
+|---------|-----|
+| **Backend API** | https://algsoch-magicpin.onrender.com |
+| **Frontend Dashboard** | https://vera-ai-frontend.onrender.com |
+| **API Docs** | https://algsoch-magicpin.onrender.com/docs |
+
 ## Test Results
 
 | Suite | Tests | Result |
@@ -56,15 +64,28 @@ Dashboard opens at `http://localhost:5173`.
 ### 3. Run All Tests
 
 ```bash
-# Judge harness simulator (official)
+# Quick cloud tests (runs against deployed backend)
+python run_cloud_tests.py --url https://algsoch-magicpin.onrender.com
+
+# Judge harness simulator (official — requires LLM API key)
 python judge_simulator.py
 
-# Custom stress tests
+# Custom stress tests (local)
 python custom_stress_tests.py --bot-url http://localhost:8000
 
-# Advanced stress tests (25 hard tests)
+# Advanced stress tests (25 hard tests, local)
 python advanced_stress_tests.py --bot-url http://localhost:8000
 ```
+
+### About Ollama (Merchant Simulator)
+
+The frontend includes an **Ollama Simulation toggle** that auto-generates merchant replies using a local LLM. This feature is **NOT available on the deployed frontend** because:
+
+1. **Ollama requires a local server** (`http://localhost:11434`) running on your machine with models like `phi3:latest` or `llama3` installed.
+2. **Render's free tier has no GPU** and cannot run Ollama — it would need a dedicated GPU instance.
+3. **The toggle simulates a merchant** by sending random responses back to Vera, useful for testing multi-turn flows locally without a human clicking buttons.
+
+For cloud testing, use `run_cloud_tests.py` which runs automated tests directly against the deployed API without needing Ollama.
 
 ## Architecture
 
@@ -199,6 +220,10 @@ magicpin-ai-challenge/
 ```
 
 ## Deploy to Render
+
+### Live URLs
+- **Backend:** https://algsoch-magicpin.onrender.com
+- **Frontend:** https://vera-ai-frontend.onrender.com
 
 ### One-Click Deploy
 Use the included `render.yaml` for a blueprint deploy.
