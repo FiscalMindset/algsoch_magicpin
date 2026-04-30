@@ -31,4 +31,4 @@ services:
         fromService:
           name: vera-ai-backend
           type: web
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
