@@ -5,7 +5,6 @@ services:
     env: docker
     rootDir: backend
     dockerfilePath: Dockerfile
-    plan: free
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
@@ -25,7 +24,6 @@ services:
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    plan: free
     envVars:
       - key: VITE_API_URL
         fromService:
