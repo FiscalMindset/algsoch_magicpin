@@ -1,0 +1,158 @@
+.conversations {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.conversations-header {
+  margin-bottom: 2rem;
+}
+
+.conversations-header h2 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.95);
+  margin: 0 0 0.5rem 0;
+}
+
+.conversations-header p {
+  color: rgba(248, 250, 252, 0.70);
+  margin: 0;
+}
+
+.conversations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.conversation-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.conversation-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.conversation-avatar {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.conversation-merchant {
+  margin: 0;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.conversation-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  text-transform: capitalize;
+}
+
+.status-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-completed {
+  background: rgba(167, 139, 250, 0.14);
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.conversation-preview {
+  margin: 0 0 0.5rem 0;
+  color: rgba(248, 250, 252, 0.70);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-time {
+  font-size: 0.75rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.conversation-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 60px;
+}
+
+.message-count {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: rgba(16, 185, 129, 0.95);
+}
+
+.message-label {
+  font-size: 0.75rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+@media (max-width: 768px) {
+  .conversation-item {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .conversation-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .conversation-status {
+    align-self: flex-start;
+  }
+
+  .conversation-meta {
+    flex-direction: row;
+    justify-content: space-between;
+    min-width: auto;
+  }
+}

@@ -1,0 +1,75 @@
+.stat-box {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.stat-box:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stat-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: rgba(248, 250, 252, 0.70);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.95);
+  margin-bottom: 0.5rem;
+}
+
+.stat-trend {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.trend-up {
+  color: #10b981;
+}
+
+.trend-down {
+  color: #ef4444;
+}
+
+.trend-neutral {
+  color: rgba(248, 250, 252, 0.60);
+}
+
+/* Color variants */
+.stat-box-blue .stat-icon {
+  color: #d946ef;
+}
+
+.stat-box-green .stat-icon {
+  color: #10b981;
+}
+
+.stat-box-orange .stat-icon {
+  color: #f59e0b;
+}
+
+.stat-box-red .stat-icon {
+  color: #ef4444;
+}
+
+.stat-box-purple .stat-icon {
+  color: #a78bfa;
+}

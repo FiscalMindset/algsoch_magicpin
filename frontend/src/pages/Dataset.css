@@ -1,0 +1,7 @@
+.dataset-page { padding: 1rem; }
+.dataset-header h2 { margin: 0 0 0.25rem 0; }
+.dataset-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; margin-top: 1rem; }
+.dataset-list { list-style: none; padding: 0; margin: 0; }
+.dataset-list li { margin: 0.25rem 0; }
+.dataset-list button { background: transparent; border: none; color: var(--accent); cursor: pointer; }
+.dataset-content { max-height: 60vh; overflow: auto; background: var(--card-bg); padding: 0.5rem; border-radius: 6px; }

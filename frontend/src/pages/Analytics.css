@@ -1,0 +1,76 @@
+.analytics {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.analytics-header {
+  margin-bottom: 2rem;
+}
+
+.analytics-header h2 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.95);
+  margin: 0 0 0.5rem 0;
+}
+
+.analytics-header p {
+  color: rgba(248, 250, 252, 0.70);
+  margin: 0;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.10) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.metric-content {
+  text-align: center;
+}
+
+.metric-content h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: rgba(248, 250, 252, 0.70);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: rgba(16, 185, 129, 0.95);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.metric-unit {
+  font-size: 0.875rem;
+  color: rgba(248, 250, 252, 0.55);
+  font-weight: 500;
+}
+
+.timeline-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 0.5rem;
+  border: 2px dashed rgba(255, 255, 255, 0.16);
+  color: rgba(248, 250, 252, 0.55);
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,42 @@
+.faq-page {
+  padding: 24px;
+}
+
+.faq-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.faq-header p {
+  margin: 6px 0 0;
+  color: rgba(248, 250, 252, 0.75);
+}
+
+.faq-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.faq-text {
+  color: rgba(248, 250, 252, 0.85);
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+
+.faq-text:last-child {
+  margin-bottom: 0;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@media (max-width: 1100px) {
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

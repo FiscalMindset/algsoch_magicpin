@@ -1,0 +1,24 @@
+.testing-page { padding: 24px; }
+.testing-header h2 { margin: 0 0 0.25rem 0; font-size: 24px; font-weight: 700; }
+.testing-header p { margin: 0; color: rgba(255,255,255,0.75); }
+.testing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
+.test-result { max-height: 50vh; overflow: auto; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+.testing-grid button { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: linear-gradient(135deg, #10b981, #f97316); color: #0b1220; cursor: pointer; font-weight: 700; }
+.testing-grid button:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.smoke-summary { display: flex; gap: 10px; margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); }
+.smoke-summary .ok { color: #34d399; font-weight: 800; }
+.smoke-summary .fail { color: #fb7185; font-weight: 800; }
+
+.smoke-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.smoke-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04); }
+.smoke-item.ok { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.08); }
+.smoke-item.fail { border-color: rgba(251,113,133,0.35); background: rgba(251,113,133,0.08); }
+.smoke-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.45); }
+.smoke-item.ok .smoke-dot { background: #34d399; }
+.smoke-item.fail .smoke-dot { background: #fb7185; }
+.smoke-name { font-weight: 700; }
+
+@media (max-width: 900px) {
+  .testing-grid { grid-template-columns: 1fr; }
+}
