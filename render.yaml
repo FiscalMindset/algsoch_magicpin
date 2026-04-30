@@ -31,4 +31,4 @@ services:
         fromService:
           name: vera-ai-backend
           type: web
-          envVarUrl: true
+          property: url
