@@ -612,12 +612,15 @@ Respond in JSON format:
             rationale = "Seasonal dip; reframe + propose retention action."
 
         elif kind in ["milestone_reached", "curious_ask_due"]:
+            topic = norm(trig_payload.get("question_topic") or trig_payload.get("milestone"))
+            topic_line = f" Topic: {topic.replace('_', ' ')}." if topic else ""
+            offer_line = f" Push {offer_title}?" if offer_title else ""
             body = (
-                f"{merchant_salute} 🎉 quick win: want me to draft a Google post + a 4-line WhatsApp reply for customers?\n"
-                f"Just tell me which service people asked for most this week."
+                f"{merchant_salute} 🎉 quick win!{topic_line}{offer_line}\n"
+                f"Want me to draft a Google post + a 4-line WhatsApp reply for customers?"
             )
             cta = "open_ended"
-            rationale = "Milestone/curious ask; ask 1 question and offer immediate deliverable."
+            rationale = f"Milestone/curious ask{' about ' + topic if topic else ''}; offer immediate deliverable."
 
         elif kind in ["renewal_due", "trial_followup"]:
             sub = merchant.get("subscription", {}) if isinstance(merchant, dict) else {}

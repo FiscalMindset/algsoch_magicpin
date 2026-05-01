@@ -157,15 +157,15 @@ NOW = "2026-04-26T10:30:00Z"
 
 
 def seed_base():
-    push_context("category", "dentists", 1, CATEGORY_DENTISTS)
-    push_context("merchant", "m_001_drmeera", 1, MERCHANT_MEERA)
-    push_context("customer", "c_001_priya", 1, CUSTOMER_PRIYA)
+    push_context("category", "dentists", 900, CATEGORY_DENTISTS)
+    push_context("merchant", "m_001_drmeera", 900, MERCHANT_MEERA)
+    push_context("customer", "c_001_priya", 900, CUSTOMER_PRIYA)
 
 
 def test_01_fresh_trigger_kind():
     """Send trigger with unknown kind, verify grounded message."""
-    push_context("trigger", "trg_unknown_kind", 1, {
-        "id": "trg_unknown_kind",
+    push_context("trigger", "adapt_trg_unknown_kind", 1, {
+        "id": "adapt_trg_unknown_kind",
         "scope": "merchant",
         "kind": "inventory_surplus_detected",
         "source": "internal",
@@ -175,7 +175,7 @@ def test_01_fresh_trigger_kind():
         "urgency": 3,
         "expires_at": "2026-05-10T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_unknown_kind"])
+    code, data = tick(NOW, ["adapt_trg_unknown_kind"])
     check("Fresh trigger kind returns action", code == 200 and len(data.get("actions", [])) > 0)
     if data.get("actions"):
         action = data["actions"][0]
@@ -186,8 +186,8 @@ def test_01_fresh_trigger_kind():
 
 def test_02_expired_trigger_filtered():
     """Expired trigger should be filtered out."""
-    push_context("trigger", "trg_expired", 1, {
-        "id": "trg_expired",
+    push_context("trigger", "adapt_trg_expired", 1, {
+        "id": "adapt_trg_expired",
         "scope": "merchant",
         "kind": "research_digest",
         "source": "external",
@@ -197,14 +197,14 @@ def test_02_expired_trigger_filtered():
         "urgency": 2,
         "expires_at": "2026-04-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_expired"])
+    code, data = tick(NOW, ["adapt_trg_expired"])
     check("Expired trigger returns no actions", code == 200 and len(data.get("actions", [])) == 0)
 
 
 def test_03_missing_merchant_context():
     """Trigger referencing non-existent merchant should be skipped."""
-    push_context("trigger", "trg_ghost_merchant", 1, {
-        "id": "trg_ghost_merchant",
+    push_context("trigger", "adapt_trg_ghost_merchant", 1, {
+        "id": "adapt_trg_ghost_merchant",
         "scope": "merchant",
         "kind": "perf_dip",
         "source": "internal",
@@ -214,13 +214,13 @@ def test_03_missing_merchant_context():
         "urgency": 4,
         "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_ghost_merchant"])
+    code, data = tick(NOW, ["adapt_trg_ghost_merchant"])
     check("Missing merchant context returns no actions", code == 200 and len(data.get("actions", [])) == 0)
 
 
 def test_04_duplicate_context_push_idempotent():
     """Re-posting same version should return 409 stale_version."""
-    code, data = push_context("category", "dentists", 1, CATEGORY_DENTISTS)
+    code, data = push_context("category", "dentists", 900, CATEGORY_DENTISTS)
     check("Duplicate version returns not accepted", code == 200 and data.get("accepted") == False,
           f"Got: accepted={data.get('accepted')}, reason={data.get('reason')}")
 
@@ -229,7 +229,7 @@ def test_05_higher_version_update():
     """Higher version should replace context."""
     updated_cat = dict(CATEGORY_DENTISTS)
     updated_cat["peer_stats"] = {"avg_ctr": 0.035}
-    code, data = push_context("category", "dentists", 2, updated_cat)
+    code, data = push_context("category", "dentists", 901, updated_cat)
     check("Higher version accepted", code == 200 and data.get("accepted") == True)
     code2, data2 = get("/v1/healthz")
     check("Healthz reflects category count", code2 == 200 and data2.get("contexts_loaded", {}).get("category", 0) >= 1)
@@ -237,8 +237,8 @@ def test_05_higher_version_update():
 
 def test_06_customer_scope_without_customer_context():
     """Customer-scope trigger without customer context should be skipped."""
-    push_context("trigger", "trg_recall_no_customer", 1, {
-        "id": "trg_recall_no_customer",
+    push_context("trigger", "adapt_trg_recall_no_customer", 1, {
+        "id": "adapt_trg_recall_no_customer",
         "scope": "customer",
         "kind": "recall_due",
         "source": "internal",
@@ -248,15 +248,15 @@ def test_06_customer_scope_without_customer_context():
         "urgency": 5,
         "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_recall_no_customer"])
+    code, data = tick(NOW, ["adapt_trg_recall_no_customer"])
     check("Customer scope without customer context returns no actions",
           code == 200 and len(data.get("actions", [])) == 0)
 
 
 def test_07_taboo_word_sanitized():
     """Taboo words from category.voice.taboos should be filtered from output."""
-    push_context("trigger", "trg_taboo_test", 1, {
-        "id": "trg_taboo_test",
+    push_context("trigger", "adapt_trg_taboo_test", 1, {
+        "id": "adapt_trg_taboo_test",
         "scope": "merchant",
         "kind": "perf_spike",
         "source": "internal",
@@ -266,7 +266,7 @@ def test_07_taboo_word_sanitized():
         "urgency": 3,
         "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_taboo_test"])
+    code, data = tick(NOW, ["adapt_trg_taboo_test"])
     if data.get("actions"):
         body = data["actions"][0].get("body", "").lower()
         check("Taboo word 'cure' not in body", "cure" not in body, f"Body contains 'cure'")
@@ -283,21 +283,21 @@ def test_08_no_triggers_available():
 
 def test_09_multiple_triggers_priority_ordering():
     """Multiple triggers should be prioritized by urgency."""
-    push_context("trigger", "trg_low", 1, {
-        "id": "trg_low", "scope": "merchant", "kind": "curious_ask_due",
+    push_context("trigger", "adapt_trg_low", 1, {
+        "id": "adapt_trg_low", "scope": "merchant", "kind": "curious_ask_due",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {}, "urgency": 1, "expires_at": "2026-06-01T00:00:00Z",
     })
-    push_context("trigger", "trg_high", 1, {
-        "id": "trg_high", "scope": "merchant", "kind": "perf_dip",
+    push_context("trigger", "adapt_trg_high", 1, {
+        "id": "adapt_trg_high", "scope": "merchant", "kind": "perf_dip",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {"metric": "calls", "delta_pct": -0.3, "window": "7d"},
         "urgency": 5, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_low", "trg_high"])
+    code, data = tick(NOW, ["adapt_trg_low", "adapt_trg_high"])
     if data.get("actions") and len(data["actions"]) >= 1:
         first_action = data["actions"][0]
-        check("Highest urgency trigger sent first", first_action.get("trigger_id") == "trg_high",
+        check("Highest urgency trigger sent first", first_action.get("trigger_id") == "adapt_trg_high",
               f"First trigger: {first_action.get('trigger_id')}")
     else:
         check("Multiple triggers produce actions", False, f"No actions: {data}")
@@ -305,25 +305,25 @@ def test_09_multiple_triggers_priority_ordering():
 
 def test_10_conversation_id_determinism():
     """Same input should produce same conversation_id across two ticks."""
-    push_context("trigger", "trg_determinism", 1, {
-        "id": "trg_determinism", "scope": "merchant", "kind": "milestone_reached",
+    push_context("trigger", "adapt_trg_determinism", 1, {
+        "id": "adapt_trg_determinism", "scope": "merchant", "kind": "milestone_reached",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {}, "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code1, data1 = tick(NOW, ["trg_determinism"])
+    code1, data1 = tick(NOW, ["adapt_trg_determinism"])
     conv_id_1 = data1["actions"][0].get("conversation_id") if data1.get("actions") else None
 
-    push_context("trigger", "trg_determinism2", 1, {
-        "id": "trg_determinism2", "scope": "merchant", "kind": "milestone_reached",
+    push_context("trigger", "adapt_trg_determinism2", 1, {
+        "id": "adapt_trg_determinism2", "scope": "merchant", "kind": "milestone_reached",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {}, "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code2, data2 = tick(NOW, ["trg_determinism2"])
+    code2, data2 = tick(NOW, ["adapt_trg_determinism2"])
     conv_id_2 = data2["actions"][0].get("conversation_id") if data2.get("actions") else None
 
     if conv_id_1 and conv_id_2:
-        expected_1 = "conv:m_001_drmeera:trg_determinism"
-        expected_2 = "conv:m_001_drmeera:trg_determinism2"
+        expected_1 = "conv:m_001_drmeera:adapt_trg_determinism"
+        expected_2 = "conv:m_001_drmeera:adapt_trg_determinism2"
         check("Conversation ID format is deterministic (conv:merchant:trigger)",
               conv_id_1 == expected_1 and conv_id_2 == expected_2,
               f"conv1={conv_id_1} (expected {expected_1}), conv2={conv_id_2} (expected {expected_2})")
@@ -334,13 +334,13 @@ def test_10_conversation_id_determinism():
 
 def test_11_auto_reply_hell():
     """4 identical replies should end conversation."""
-    push_context("trigger", "trg_autoreply", 1, {
-        "id": "trg_autoreply", "scope": "merchant", "kind": "research_digest",
+    push_context("trigger", "adapt_trg_autoreply", 1, {
+        "id": "adapt_trg_autoreply", "scope": "merchant", "kind": "research_digest",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {"top_item_id": "d_2026W17_jida_fluoride"},
         "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_autoreply"])
+    code, data = tick(NOW, ["adapt_trg_autoreply"])
     if data.get("actions"):
         conv_id = data["actions"][0]["conversation_id"]
         auto_msg = "Thanks for your message. We'll get back to you soon."
@@ -354,13 +354,13 @@ def test_11_auto_reply_hell():
 
 def test_12_hostile_message_ends():
     """Hostile message should end conversation."""
-    push_context("trigger", "trg_hostile", 1, {
-        "id": "trg_hostile", "scope": "merchant", "kind": "research_digest",
+    push_context("trigger", "adapt_trg_hostile", 1, {
+        "id": "adapt_trg_hostile", "scope": "merchant", "kind": "research_digest",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {"top_item_id": "d_2026W17_jida_fluoride"},
         "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_hostile"])
+    code, data = tick(NOW, ["adapt_trg_hostile"])
     if data.get("actions"):
         conv_id = data["actions"][0]["conversation_id"]
         code, reply_data = reply(conv_id, "m_001_drmeera", "merchant", "This is spam! Unsubscribe me now.", 2)
@@ -372,13 +372,13 @@ def test_12_hostile_message_ends():
 
 def test_13_objection_repositioning():
     """Budget objection should reframe with free options."""
-    push_context("trigger", "trg_objection", 1, {
-        "id": "trg_objection", "scope": "merchant", "kind": "research_digest",
+    push_context("trigger", "adapt_trg_objection", 1, {
+        "id": "adapt_trg_objection", "scope": "merchant", "kind": "research_digest",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {"top_item_id": "d_2026W17_jida_fluoride"},
         "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_objection"])
+    code, data = tick(NOW, ["adapt_trg_objection"])
     if data.get("actions"):
         conv_id = data["actions"][0]["conversation_id"]
         code, reply_data = reply(conv_id, "m_001_drmeera", "merchant", "I don't have budget for this right now", 2)
@@ -394,12 +394,12 @@ def test_13_objection_repositioning():
 
 def test_14_commitment_transition():
     """'Let's do it' should switch to action, not ask more questions."""
-    push_context("trigger", "trg_commitment", 1, {
-        "id": "trg_commitment", "scope": "merchant", "kind": "active_planning_intent",
+    push_context("trigger", "adapt_trg_commitment", 1, {
+        "id": "adapt_trg_commitment", "scope": "merchant", "kind": "active_planning_intent",
         "merchant_id": "m_001_drmeera", "customer_id": None,
         "payload": {}, "urgency": 3, "expires_at": "2026-06-01T00:00:00Z",
     })
-    code, data = tick(NOW, ["trg_commitment"])
+    code, data = tick(NOW, ["adapt_trg_commitment"])
     if data.get("actions"):
         conv_id = data["actions"][0]["conversation_id"]
         code, reply_data = reply(conv_id, "m_001_drmeera", "merchant", "ok let's do it", 2)

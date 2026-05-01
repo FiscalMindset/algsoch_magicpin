@@ -410,12 +410,26 @@ async def reply(request: ReplyRequest):
                 )
             return _make_reply("send", body, "binary_yes_no", "Merchant committed; switching to execution.", cid)
 
-        if msg_clean in ["yes", "sure", "ok", "okay", "go", "yeah", "haan", "ha"]:
-            body = _hindi_yes(name) if use_hindi else (
-                f"Great, {name}! I'll get started.\n"
-                f"I'll pull together a draft based on your current data. "
-                f"Give me a moment \u2014 I'll share it here."
-            )
+        if msg_clean in ["yes", "sure", "ok", "okay", "go", "yeah", "haan", "ha"] or any(k in msg_lower for k in ["tell me more", "more details", "what are"]):
+            trigger_ctx = _find_best_trigger_for_merchant(request.merchant_id)
+            trig_kind = trigger_ctx.get("kind", "").replace("_", " ") if trigger_ctx else ""
+            trig_payload = trigger_ctx.get("payload", {}) if trigger_ctx else {}
+            topic = trig_payload.get("question_topic") or trig_payload.get("milestone", "")
+            if topic:
+                topic = topic.replace("_", " ")
+            if active_offers and not topic:
+                offers_info = f"Your active offers: {', '.join(active_offers)}.\n"
+                body = f"{name}, {offers_info}Want me to draft a campaign around one of these?"
+            elif topic:
+                body = f"{name}, about {topic}: I can draft a focused message + Google post. Your top offer is {active_offers[0] if active_offers else 'active'}. Want me to proceed?"
+            elif use_hindi:
+                body = _hindi_yes(name)
+            else:
+                body = (
+                    f"Great, {name}! I'll get started.\n"
+                    f"I'll pull together a draft based on your current data. "
+                    f"Give me a moment \u2014 I'll share it here."
+                )
             return _make_reply("send", body, "none", "Merchant said yes; acknowledging and preparing next action.", cid)
 
         if msg_clean in ["no", "nope", "nah", "not now", "nahi"]:
