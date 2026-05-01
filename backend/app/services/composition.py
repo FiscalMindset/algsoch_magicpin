@@ -284,7 +284,7 @@ Respond in JSON format:
                     json={
                         "model": self.groq_model,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
+                        "temperature": 0,
                         "max_tokens": 1024,
                     },
                 )
@@ -465,9 +465,24 @@ Respond in JSON format:
                     cta = "binary_yes_no"
                     rationale = "Winback/followup trigger; no guilt, simple YES/STOP CTA."
             else:
-                body = f"{hi} — {m_name} here.\nQuick update from us. Reply YES for details, or STOP to opt out."
+                rel = customer.get("relationship", {}) if isinstance(customer, dict) else {}
+                last_visit = norm(rel.get("last_visit"))
+                visits = rel.get("visits_total")
+                services = rel.get("services_received", [])
+                visit_line = f"Last visit: {last_visit}." if last_visit else ""
+                visits_line = f"Total visits: {visits}." if visits else ""
+                svc_line = f"Recent services: {', '.join(services[-2:])}." if services else ""
+                context_lines = " ".join(x for x in [visit_line, visits_line, svc_line] if x)
+                if context_lines:
+                    body = (
+                        f"{hi} — {m_name} here.\n"
+                        f"{kind.replace('_', ' ')}: {context_lines}{price_line}\n"
+                        f"Want to book or learn more? Reply YES for options. (Reply STOP to opt out.)"
+                    )
+                else:
+                    body = f"{hi} — {m_name} here.\n{kind.replace('_', ' ')} update.{price_line}\nReply YES for details, or STOP to opt out."
                 cta = "binary_yes_no"
-                rationale = "Safe default for unknown customer trigger."
+                rationale = f"Generic customer {kind} trigger; grounded in relationship data where available."
 
             return ComposedMessage(
                 body=taboo_sanitize(body),
@@ -653,13 +668,41 @@ Respond in JSON format:
 
         else:
             city = f"{m_loc}, {m_city}".strip(", ")
-            body = (
-                f"{merchant_salute} — quick update{f' for {city}' if city else ''}.\n"
-                f"Trigger: {kind.replace('_',' ')}.\n"
-                f"Want me to draft a focused message using your best offer + one clear CTA?"
-            )
+            payload_bits = []
+            if isinstance(trig_payload, dict):
+                for k, v in trig_payload.items():
+                    if v is not None and k not in ("category",):
+                        payload_bits.append(f"{k}: {v}")
+            perf_lines = []
+            if perf.get("views"):
+                perf_lines.append(f"{perf['views']} views (30d)")
+            if perf.get("calls"):
+                perf_lines.append(f"{perf['calls']} calls")
+            if perf.get("ctr") is not None:
+                perf_lines.append(f"CTR {perf['ctr']*100:.1f}%")
+            if peer_ctr and ctr is not None:
+                if ctr < peer_ctr:
+                    perf_lines.append(f"CTR below peer median ({peer_ctr*100:.1f}%)")
+                else:
+                    perf_lines.append(f"CTR above peer median ({peer_ctr*100:.1f}%)")
+            offer_line = f"Active offer: {offer_title}." if offer_title else ""
+            fact_lines = payload_bits + perf_lines
+            if fact_lines:
+                facts = " ".join(f"• {l}" for l in fact_lines[:4])
+                body = (
+                    f"{merchant_salute} — {kind.replace('_', ' ')} update{f' for {city}' if city else ''}.\n"
+                    f"{facts}\n"
+                    f"{offer_line}\n"
+                    f"Want me to act on this? Reply YES and I'll draft next steps."
+                )
+            else:
+                body = (
+                    f"{merchant_salute} — {kind.replace('_', ' ')} update{f' for {city}' if city else ''}.\n"
+                    f"{offer_line}\n"
+                    f"Want me to draft a focused message using your best offer + one clear CTA?"
+                )
             cta = "binary_yes_no"
-            rationale = "Safe fallback; grounded in trigger + merchant identity."
+            rationale = f"Generic {kind} trigger; grounded in available facts from trigger payload, merchant performance, and offers."
 
         return ComposedMessage(
             body=taboo_sanitize(body),

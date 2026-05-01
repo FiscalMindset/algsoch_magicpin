@@ -247,14 +247,30 @@ async def reply(request: ReplyRequest):
             bot_state.conversation_manager.end_conversation(request.conversation_id)
             return ReplyAction(action="end", rationale="User asked to stop / hostile message. Exiting conversation.")
 
+        objections = ["no budget", "too expensive", "cant afford", "can't afford", "not worth it", "waste of money", "dont need this", "don't need this"]
+        if any(m in msg_lower for m in objections):
+            if use_hindi:
+                body = (
+                    f"{name}, samajh sakta hoon. Budget concern valid hai.\n"
+                    f"Good news: basic features free hain. Koi cost nahi.\n"
+                    f"Shuru karein? Sirf 2 min lagenge."
+                )
+            else:
+                body = (
+                    f"Understood, {name}. Budget matters.\n"
+                    f"The good news: the basic actions I'm suggesting are free — no cost to you.\n"
+                    f"Want me to show you what you can do at zero spend?"
+                )
+            return _make_reply("send", body, "binary_yes_no", "Objection on budget; reframing with free options.", cid)
+
         disinterest = ["not interested", "no thanks", "don't want", "do not want", "no need", "stop it"]
         if any(m in msg_lower for m in disinterest):
             bot_state.conversation_manager.end_conversation(request.conversation_id)
             return ReplyAction(action="end", rationale="Merchant not interested. Exiting conversation politely.")
 
-        later_markers = ["later", "tomorrow", "call me later", "busy", "not now"]
+        later_markers = ["later", "tomorrow", "call me later", "busy", "not now", "send later", "remind me"]
         if any(m in msg_lower for m in later_markers):
-            return ReplyAction(action="wait", wait_seconds=1800, rationale="Merchant asked to come back later; backing off 30 minutes.")
+            return ReplyAction(action="wait", wait_seconds=3600, rationale="Merchant asked to come back later; backing off 1 hour.")
 
         if request.conversation_id not in bot_state.conversation_manager.conversation_metadata:
             bot_state.conversation_manager.create_conversation(
@@ -425,7 +441,7 @@ async def reply(request: ReplyRequest):
                 trigger=trigger_context,
                 customer=None,
                 conversation_history=conversation_history,
-                force_template=True,
+                force_template=False,
             )
             return _make_reply("send", composed.body, composed.cta, composed.rationale, cid)
 

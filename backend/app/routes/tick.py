@@ -4,7 +4,6 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from app.services import bot_state
 import asyncio
-import uuid
 
 router = APIRouter()
 
@@ -15,11 +14,10 @@ class TickRequest(BaseModel):
 
 
 class Action(BaseModel):
-    # Contract fields (challenge-testing-brief.md)
     conversation_id: str
     merchant_id: str
     customer_id: Optional[str] = None
-    send_as: Optional[str] = None  # "vera" | "merchant_on_behalf"
+    send_as: Optional[str] = None
     trigger_id: Optional[str] = None
     template_name: Optional[str] = None
     template_params: Optional[List[str]] = None
@@ -34,30 +32,38 @@ class TickResponse(BaseModel):
     actions: List[Action]
 
 
+def _deterministic_conversation_id(merchant_id: str, trigger_id: str, customer_id: Optional[str] = None) -> str:
+    parts = ["conv", merchant_id, trigger_id]
+    if customer_id:
+        parts.append(customer_id)
+    return ":".join(parts)
+
+
+def _compute_priority(trigger_ctx: Dict[str, Any]) -> float:
+    urgency = int(trigger_ctx.get("urgency") or 1)
+    version = 1
+    if trigger_ctx.get("id"):
+        version = bot_state.context_store.get_version("trigger", trigger_ctx["id"]) if bot_state.context_store else 1
+    return urgency * 10 + version
+
+
 @router.post("/v1/tick", response_model=TickResponse)
 async def tick(request: TickRequest):
-    """
-    Periodic wake-up endpoint.
-    Bot inspects context and decides whether to send proactive messages.
-    Timeout: 30 seconds.
-    """
     try:
         if not bot_state.context_store or not bot_state.composition_service or not bot_state.conversation_manager:
             return TickResponse(actions=[])
 
         actions: List[Action] = []
-
-        # Load triggers, filter expired/missing, then prioritize by urgency (desc).
         trigger_rows: List[Dict[str, Any]] = []
+
         for trigger_id in request.available_triggers:
-            trigger_ctx = bot_state.context_store.get_context("trigger", trigger_id) or {}
+            trigger_ctx = bot_state.context_store.get_context("trigger", trigger_id)
             if not trigger_ctx:
                 continue
 
-            # Expiry guard
             try:
                 exp = trigger_ctx.get("expires_at")
-                if exp and isinstance(exp, str) and request.now:
+                if exp and isinstance(exp, str):
                     exp_dt = datetime.fromisoformat(exp.replace("Z", "+00:00"))
                     if exp_dt <= request.now:
                         continue
@@ -72,17 +78,10 @@ async def tick(request: TickRequest):
             if not merchant_id:
                 continue
 
-            trigger_rows.append({"id": trigger_id, "ctx": trigger_ctx, "suppression_key": suppression_key})
+            merchant_ctx = bot_state.context_store.get_context("merchant", merchant_id)
+            if not merchant_ctx:
+                continue
 
-        trigger_rows.sort(key=lambda r: (-int(r["ctx"].get("urgency") or 1), str(r["ctx"].get("kind") or ""), r["id"]))
-
-        # Avoid spam: send at most 3 actions per tick (still under 20 cap).
-        for row in trigger_rows[:3]:
-            trigger_id = row["id"]
-            trigger_ctx = row["ctx"]
-            suppression_key = row["suppression_key"]
-
-            merchant_ctx = bot_state.context_store.get_context("merchant", merchant_id) or {}
             category_slug = merchant_ctx.get("category_slug")
             category_ctx = bot_state.context_store.get_context("category", category_slug) if category_slug else {}
 
@@ -91,32 +90,56 @@ async def tick(request: TickRequest):
             if customer_id:
                 customer_ctx = bot_state.context_store.get_context("customer", customer_id)
                 if trigger_ctx.get("scope") == "customer" and not customer_ctx:
-                    # Can't safely message a customer without customer context.
                     continue
 
+            trigger_rows.append({
+                "id": trigger_id,
+                "ctx": trigger_ctx,
+                "merchant_id": merchant_id,
+                "merchant_ctx": merchant_ctx,
+                "category_ctx": category_ctx or {},
+                "customer_ctx": customer_ctx,
+                "customer_id": customer_id,
+                "suppression_key": suppression_key,
+                "priority": _compute_priority(trigger_ctx),
+            })
+
+        trigger_rows.sort(key=lambda r: -r["priority"])
+
+        for row in trigger_rows[:5]:
+            trigger_id = row["id"]
+            trigger_ctx = row["ctx"]
+            merchant_id = row["merchant_id"]
+            merchant_ctx = row["merchant_ctx"]
+            category_ctx = row["category_ctx"]
+            customer_ctx = row["customer_ctx"]
+            customer_id = row["customer_id"]
+            suppression_key = row["suppression_key"]
+
             composed = await bot_state.composition_service.compose(
-                category=category_ctx or {},
+                category=category_ctx,
                 merchant=merchant_ctx,
                 trigger=trigger_ctx,
                 customer=customer_ctx,
                 conversation_history=None,
-                force_template=True,
+                force_template=False,
             )
             if not composed.body:
                 continue
 
-            conversation_id = f"conv_{trigger_id}_{uuid.uuid4().hex[:8]}"
-            bot_state.conversation_manager.create_conversation(
-                conversation_id=conversation_id,
-                merchant_id=merchant_id,
-                customer_id=customer_id,
-            )
-            # Stash trigger id for reply continuity.
-            bot_state.conversation_manager.conversation_metadata[conversation_id]["trigger_id"] = trigger_id
+            conversation_id = _deterministic_conversation_id(merchant_id, trigger_id, customer_id)
+
+            if conversation_id not in bot_state.conversation_manager.conversation_metadata:
+                bot_state.conversation_manager.create_conversation(
+                    conversation_id=conversation_id,
+                    merchant_id=merchant_id,
+                    customer_id=customer_id,
+                )
+                bot_state.conversation_manager.conversation_metadata[conversation_id]["trigger_id"] = trigger_id
 
             bot_state.sent_suppression_keys.add(suppression_key)
 
-            merchant_identity = (merchant_ctx or {}).get("identity", {}) if isinstance(merchant_ctx, dict) else {}
+            merchant_identity = merchant_ctx.get("identity", {}) if isinstance(merchant_ctx, dict) else {}
             merchant_display_name = (
                 merchant_identity.get("owner_first_name")
                 or merchant_identity.get("name")
@@ -146,7 +169,6 @@ async def tick(request: TickRequest):
         return TickResponse(actions=actions)
 
     except asyncio.TimeoutError:
-        # Return empty actions on timeout
         return TickResponse(actions=[])
     except Exception as e:
         print(f"Error in tick: {e}")

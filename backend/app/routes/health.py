@@ -42,12 +42,12 @@ async def metadata():
             approach = "4-context composition framework with optional LLM assistance"
 
     return MetadataResponse(
-        team_name="Vera AI Team",
-        team_members=["AI Engineer"],
+        team_name="Algsoch AI",
+        team_members=["Vicky Kumar"],
         model=model,
         approach=approach,
-        contact_email="team@magicpin.ai",
-        version="1.0.0",
+        contact_email="vicky@algsoch.ai",
+        version="2.0.0",
         submitted_at=datetime.utcnow(),
         groq_default=bool(bot_state.groq_api_key),
         default_provider=(bot_state.composition_service.provider if bot_state.composition_service else None),
