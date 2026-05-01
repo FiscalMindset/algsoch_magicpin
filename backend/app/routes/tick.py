@@ -106,7 +106,7 @@ async def tick(request: TickRequest):
 
         trigger_rows.sort(key=lambda r: -r["priority"])
 
-        for row in trigger_rows[:5]:
+        for row in trigger_rows[:15]:  # Allow up to 15 actions per tick (within 20 action cap)
             trigger_id = row["id"]
             trigger_ctx = row["ctx"]
             merchant_id = row["merchant_id"]

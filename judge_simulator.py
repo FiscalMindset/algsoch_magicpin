@@ -261,7 +261,7 @@ class DeepSeekProvider(LLMProvider):
 class GroqProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "llama-3.1-70b-versatile"
+        self.model = model or "llama-3.3-70b-versatile"
 
     def name(self) -> str:
         return f"Groq ({self.model})"

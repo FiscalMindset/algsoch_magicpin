@@ -143,7 +143,7 @@ class CompositionService:
         self.llm_client = llm_client
         self.provider = "template"
         self.groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("VITE_GROQ_API_KEY")
-        self.groq_model = os.environ.get("GROQ_MODEL", "llama-3.1-70b-versatile")
+        self.groq_model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
         if self.groq_api_key:
             self.provider = "groq"
         elif self.llm_client:
