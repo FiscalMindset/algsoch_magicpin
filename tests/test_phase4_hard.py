@@ -576,7 +576,7 @@ def test_25_customer_minimal_consent():
 
 
 def test_26_multiple_triggers_max_5():
-    """7 triggers → max 5 actions returned."""
+    """7 triggers → max 15 actions returned (cap per spec)."""
     m_id = _id("m_multi7")
     push_context("merchant", m_id, 1, make_merchant(m_id, cat_slug="dentists"))
     tids = []
@@ -585,7 +585,7 @@ def test_26_multiple_triggers_max_5():
         tids.append(tid)
         push_context("trigger", tid, 1, make_trigger(tid, "research_digest", m_id, urgency=i+1, payload={"top_item_id": "d_001"}))
     code, data = tick_for(m_id, tids)
-    check("Max 5 actions returned", code == 200 and len(data.get("actions", [])) <= 5,
+    check("Max 15 actions returned", code == 200 and len(data.get("actions", [])) <= 15,
           f"Got {len(data.get('actions', []))} actions")
     check("At least 1 action returned", code == 200 and len(data.get("actions", [])) >= 1)
 
