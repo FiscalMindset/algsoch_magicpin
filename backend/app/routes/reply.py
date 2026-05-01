@@ -247,22 +247,6 @@ async def reply(request: ReplyRequest):
             bot_state.conversation_manager.end_conversation(request.conversation_id)
             return ReplyAction(action="end", rationale="User asked to stop / hostile message. Exiting conversation.")
 
-        objections = ["no budget", "too expensive", "cant afford", "can't afford", "not worth it", "waste of money", "dont need this", "don't need this"]
-        if any(m in msg_lower for m in objections):
-            if use_hindi:
-                body = (
-                    f"{name}, samajh sakta hoon. Budget concern valid hai.\n"
-                    f"Good news: basic features free hain. Koi cost nahi.\n"
-                    f"Shuru karein? Sirf 2 min lagenge."
-                )
-            else:
-                body = (
-                    f"Understood, {name}. Budget matters.\n"
-                    f"The good news: the basic actions I'm suggesting are free — no cost to you.\n"
-                    f"Want me to show you what you can do at zero spend?"
-                )
-            return _make_reply("send", body, "binary_yes_no", "Objection on budget; reframing with free options.", cid)
-
         disinterest = ["not interested", "no thanks", "don't want", "do not want", "no need", "stop it"]
         if any(m in msg_lower for m in disinterest):
             bot_state.conversation_manager.end_conversation(request.conversation_id)
@@ -306,6 +290,22 @@ async def reply(request: ReplyRequest):
         locality = merchant_context.get("identity", {}).get("locality", "") if isinstance(merchant_context, dict) else ""
         location = f"{locality}, {city}" if locality and city else city or ""
         cid = request.conversation_id
+
+        objections = ["no budget", "too expensive", "cant afford", "can't afford", "not worth it", "waste of money", "dont need this", "don't need this", "have budget", "don't have budget", "cannot afford", "not now, budget"]
+        if any(m in msg_lower for m in objections):
+            if use_hindi:
+                body = (
+                    f"{name}, samajh sakta hoon. Budget concern valid hai.\n"
+                    f"Good news: basic features free hain. Koi cost nahi.\n"
+                    f"Shuru karein? Sirf 2 min lagenge."
+                )
+            else:
+                body = (
+                    f"Understood, {name}. Budget matters.\n"
+                    f"The good news: the basic actions I'm suggesting are free — no cost to you.\n"
+                    f"Want me to show you what you can do at zero spend?"
+                )
+            return _make_reply("send", body, "binary_yes_no", "Objection on budget; reframing with free options.", cid)
 
         if any(k in msg_lower for k in ["offer", "my offer", "current offer", "what offer"]):
             if use_hindi:

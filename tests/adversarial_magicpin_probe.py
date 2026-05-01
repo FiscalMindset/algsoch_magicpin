@@ -311,14 +311,25 @@ def test_10_conversation_id_determinism():
         "payload": {}, "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
     })
     code1, data1 = tick(NOW, ["trg_determinism"])
-    code2, data2 = tick(NOW, ["trg_determinism"])
-    if data1.get("actions") and data2.get("actions"):
-        conv_id_1 = data1["actions"][0].get("conversation_id")
-        conv_id_2 = data2["actions"][0].get("conversation_id")
-        check("Conversation IDs are deterministic", conv_id_1 == conv_id_2,
-              f"conv1={conv_id_1}, conv2={conv_id_2}")
+    conv_id_1 = data1["actions"][0].get("conversation_id") if data1.get("actions") else None
+
+    push_context("trigger", "trg_determinism2", 1, {
+        "id": "trg_determinism2", "scope": "merchant", "kind": "milestone_reached",
+        "merchant_id": "m_001_drmeera", "customer_id": None,
+        "payload": {}, "urgency": 2, "expires_at": "2026-06-01T00:00:00Z",
+    })
+    code2, data2 = tick(NOW, ["trg_determinism2"])
+    conv_id_2 = data2["actions"][0].get("conversation_id") if data2.get("actions") else None
+
+    if conv_id_1 and conv_id_2:
+        expected_1 = "conv:m_001_drmeera:trg_determinism"
+        expected_2 = "conv:m_001_drmeera:trg_determinism2"
+        check("Conversation ID format is deterministic (conv:merchant:trigger)",
+              conv_id_1 == expected_1 and conv_id_2 == expected_2,
+              f"conv1={conv_id_1} (expected {expected_1}), conv2={conv_id_2} (expected {expected_2})")
     else:
-        check("Determinism test produced actions", False, "No actions on one or both ticks")
+        check("Determinism test produced actions on both ticks", False,
+              f"conv1={conv_id_1}, conv2={conv_id_2}")
 
 
 def test_11_auto_reply_hell():

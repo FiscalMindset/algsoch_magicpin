@@ -7,7 +7,7 @@ from .dataset import router as dataset_router
 from .playground import router as playground_router
 from .docs import router as docs_router
 from .merchant_sim import router as merchant_sim_router
-from .monitor import router as monitor_router
+from .monitor import monitor_router
 
 __all__ = [
     "health_router",
