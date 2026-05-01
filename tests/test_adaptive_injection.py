@@ -19,8 +19,10 @@ Default BOT_URL: http://localhost:8001
 import sys
 import json
 import time
+import ssl
+import http.client
 from datetime import datetime, timezone
-from urllib import request, error
+from urllib import parse
 
 BOT_URL = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
 
@@ -28,21 +30,36 @@ PASS = 0
 FAIL = 0
 TOTAL = 0
 
+# Parse base URL once
+_parsed = parse.urlparse(BOT_URL)
+_IS_HTTPS = _parsed.scheme == "https"
+_HOST = _parsed.hostname
+_PORT = _parsed.port or (443 if _IS_HTTPS else 80)
+_BASE = _parsed.path.rstrip("/")
+
+_TLS_CTX = None
+if _IS_HTTPS:
+    _TLS_CTX = ssl.create_default_context()
+    _TLS_CTX.maximum_version = ssl.TLSVersion.TLSv1_2
+
 
 def _req(method, path, body=None, retries=3):
-    url = f"{BOT_URL}{path}"
+    full_path = f"{_BASE}{path}" if not path.startswith(_BASE) else path
     data = json.dumps(body).encode("utf-8") if body else None
-    req = request.Request(url, data=data, method=method, headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if data:
+        headers["Content-Length"] = str(len(data))
     for attempt in range(retries):
         try:
-            resp = request.urlopen(req, timeout=30)
-            return resp.status, json.loads(resp.read())
-        except error.HTTPError as e:
-            raw = e.read()
-            try:
-                return e.code, json.loads(raw)
-            except:
-                return e.code, {}
+            if _IS_HTTPS:
+                conn = http.client.HTTPSConnection(_HOST, _PORT, timeout=30, context=_TLS_CTX)
+            else:
+                conn = http.client.HTTPConnection(_HOST, _PORT, timeout=30)
+            conn.request(method, full_path, body=data, headers=headers)
+            resp = conn.getresponse()
+            raw = resp.read()
+            conn.close()
+            return resp.status, json.loads(raw) if raw else {}
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(2)
