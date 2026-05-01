@@ -170,10 +170,20 @@ class CompositionService:
         # Call LLM (using Anthropic Claude or similar)
         if self.groq_api_key and not force_template:
             response = await self._call_groq(prompt)
-            message = self._parse_llm_response(response)
+            if response:
+                message = self._parse_llm_response(response)
+                if message.body:
+                    return message
+            # LLM failed, fall through to template with original contexts
+            message = self._template_based_compose(category, merchant, trigger, customer)
         elif self.llm_client and not force_template:
             response = await self._call_llm(prompt)
-            message = self._parse_llm_response(response)
+            if response:
+                message = self._parse_llm_response(response)
+                if message.body:
+                    return message
+            # LLM failed, fall through to template with original contexts
+            message = self._template_based_compose(category, merchant, trigger, customer)
         else:
             # Fallback to template-based composition
             message = self._template_based_compose(category, merchant, trigger, customer)
@@ -307,7 +317,7 @@ Respond in JSON format:
                 rationale=data.get("rationale", ""),
             )
         except json.JSONDecodeError:
-            return self._template_based_compose({}, {}, {}, None)
+            return ComposedMessage(body="", cta="open_ended", send_as="vera", suppression_key="", rationale="LLM response not valid JSON")
 
     def _template_based_compose(
         self,
