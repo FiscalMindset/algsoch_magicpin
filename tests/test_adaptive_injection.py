@@ -29,20 +29,25 @@ FAIL = 0
 TOTAL = 0
 
 
-def _req(method, path, body=None):
+def _req(method, path, body=None, retries=3):
     url = f"{BOT_URL}{path}"
     data = json.dumps(body).encode("utf-8") if body else None
     req = request.Request(url, data=data, method=method, headers={"Content-Type": "application/json"})
-    try:
-        resp = request.urlopen(req, timeout=15)
-        return resp.status, json.loads(resp.read())
-    except error.HTTPError as e:
+    for attempt in range(retries):
         try:
-            return e.code, json.loads(e.read())
-        except:
-            return e.code, {"error": str(e)}
-    except Exception as e:
-        return 0, {"error": str(e)}
+            resp = request.urlopen(req, timeout=30)
+            return resp.status, json.loads(resp.read())
+        except error.HTTPError as e:
+            raw = e.read()
+            try:
+                return e.code, json.loads(raw)
+            except:
+                return e.code, {}
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(2)
+                continue
+            return 0, {"error": str(e)}
 
 
 def post(path, body):
