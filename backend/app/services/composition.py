@@ -3,7 +3,7 @@ import os
 import re
 import hashlib
 from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from app.models import (
