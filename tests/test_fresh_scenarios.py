@@ -617,17 +617,18 @@ def test_fresh_reply_hinglish():
 def test_fresh_no_offers_at_all():
     """Merchant with zero offers — composition should not hallucinate offers."""
     mid = _id("m_no_offers")
-    cat = make_fresh_category("fresh_gyms_empty_catalog",
+    cat_slug = _id("cat_gyms_empty")
+    cat = make_fresh_category(cat_slug,
         offer_catalog=[],
         peer_stats={"avg_views_30d": 90, "avg_calls_30d": 12, "avg_ctr": 0.025})
-    merchant = make_fresh_merchant(mid, "fresh_gyms_empty_catalog",
+    merchant = make_fresh_merchant(mid, cat_slug,
         identity={"name": "Iron Temple Gym", "owner_first_name": "Vikram",
                   "city": "Pune", "locality": "Kothrud", "languages": ["en"]},
         performance={"views": 110, "calls": 15, "ctr": 0.022},
         offers=[])
     trigger = make_fresh_trigger(_id("trg_dip_no_offers"), "perf_dip", mid, urgency=4,
         payload={"metric": "views", "delta_pct": -0.25, "window": "7d", "vs_baseline": 140})
-    push_context("category", "fresh_gyms_empty_catalog", 1, cat)
+    push_context("category", cat_slug, 1, cat)
     push_context("merchant", mid, 1, merchant)
     push_context("trigger", trigger["id"], 1, trigger)
 
