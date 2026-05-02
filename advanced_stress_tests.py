@@ -382,7 +382,8 @@ def test_conversation_id_collision():
         data = json.load(open(merch_path))
         for m in data.get("merchants", []):
             if m.get("merchant_id") in [mid1, mid2]:
-                push_context("merchant", m["merchant_id"], 99999, m)
+                resp, err = push_context("merchant", m["merchant_id"], 1000000, m)
+                print_info(f"Reloaded {m['merchant_id']}: resp={resp}, err={err}")
 
     data1, err1 = send_reply(shared_id, mid1, "Show me offers", 1)
     print_info(f"Conv1 raw: action={data1.get('action') if data1 else 'None'}, err={err1}")
