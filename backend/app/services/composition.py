@@ -973,7 +973,6 @@ JSON only:
                 item_line = f"\nUpcoming: {item_title}{date_display}{credits_line}."
             urgency_line = ""
             if item and item.get("date"):
-from datetime import datetime, timezone
                 try:
                     evt_date = datetime.fromisoformat(item["date"].replace("Z", "+00:00"))
                     days_left = (evt_date - datetime.now(timezone.utc)).days

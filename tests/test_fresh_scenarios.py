@@ -78,7 +78,7 @@ def push_context(scope, context_id, version, payload):
     return post("/v1/context", {
         "scope": scope,
         "context_id": context_id,
-        "version": version,
+        "version": version + _RUN,
         "payload": payload,
         "delivered_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     })
@@ -618,7 +618,8 @@ def test_fresh_no_offers_at_all():
     """Merchant with zero offers — composition should not hallucinate offers."""
     mid = _id("m_no_offers")
     cat = make_fresh_category("fresh_gyms_empty_catalog",
-        display_name="Fitness Centers", offer_catalog=[])
+        offer_catalog=[],
+        peer_stats={"avg_views_30d": 90, "avg_calls_30d": 12, "avg_ctr": 0.025})
     merchant = make_fresh_merchant(mid, "fresh_gyms_empty_catalog",
         identity={"name": "Iron Temple Gym", "owner_first_name": "Vikram",
                   "city": "Pune", "locality": "Kothrud", "languages": ["en"]},
