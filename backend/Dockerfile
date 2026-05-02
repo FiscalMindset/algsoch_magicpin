@@ -12,5 +12,5 @@ COPY . .
 # Expose port (Render uses $PORT env var)
 EXPOSE 8000
 
-# Run the application
+# Run the application - build 2026-05-02
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
