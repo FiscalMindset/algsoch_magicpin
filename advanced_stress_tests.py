@@ -375,6 +375,15 @@ def test_conversation_id_collision():
     mid1 = "m_001_drmeera_dentist_delhi"
     mid2 = "m_003_studio11_salon_hyderabad"
 
+    # Reload original merchant contexts to clear any poisoning from previous tests
+    dataset_dir = Path(__file__).parent / "dataset"
+    merch_path = dataset_dir / "merchants_seed.json"
+    if merch_path.exists():
+        data = json.load(open(merch_path))
+        for m in data.get("merchants", []):
+            if m.get("merchant_id") in [mid1, mid2]:
+                push_context("merchant", m["merchant_id"], 99999, m)
+
     data1, err1 = send_reply(shared_id, mid1, "Show me offers", 1)
     print_info(f"Conv1 raw: action={data1.get('action') if data1 else 'None'}, err={err1}")
     if err1:
