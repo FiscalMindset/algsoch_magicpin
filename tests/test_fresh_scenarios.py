@@ -36,7 +36,7 @@ if _IS_HTTPS:
     _TLS_CTX = ssl.create_default_context()
     _TLS_CTX.maximum_version = ssl.TLSVersion.TLSv1_2
 
-_RUN = int(time.time()) % 100000
+_RUN = int(time.time() * 1000)
 
 def _id(base: str) -> str:
     return f"fresh_{_RUN}_{base}"
@@ -78,7 +78,7 @@ def push_context(scope, context_id, version, payload):
     return post("/v1/context", {
         "scope": scope,
         "context_id": context_id,
-        "version": version + _RUN,
+        "version": version + _RUN + int(time.time()),
         "payload": payload,
         "delivered_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     })
