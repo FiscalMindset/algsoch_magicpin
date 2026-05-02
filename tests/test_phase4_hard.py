@@ -368,7 +368,7 @@ def test_12_conversation_unknown_id_reply():
     m_id = _id("m_unknown")
     push_context("merchant", m_id, 1, make_merchant(m_id, cat_slug="dentists"))
     push_context("trigger", _id("trg_unknown"), 1, make_trigger(_id("trg_unknown"), "research_digest", m_id))
-    code, data = reply("conv:unknown:trg", m_id, "merchant", "Hello, what's new?", 1)
+    code, data = reply(f"conv:unknown:{_RUN}", m_id, "merchant", "Hello, what's new?", 1)
     check("Unknown conv_id creates conversation", code == 200 and data.get("action") == "send",
           f"Action: {data.get('action')}")
 
