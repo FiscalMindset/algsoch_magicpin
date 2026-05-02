@@ -1,0 +1,31 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if within 5-day window
+        run: |
+          END_DATE=$(date -d "2026-05-07" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "2026-05-07" +%s 2>/dev/null || echo 0)
+          NOW=$(date +%s)
+          if [ "$END_DATE" -gt 0 ] && [ "$NOW" -gt "$END_DATE" ]; then
+            echo "5-day window expired. Stopping pings."
+            exit 1
+          fi
+          echo "Within active window. Continuing pings."
+
+      - name: Ping Render Health Endpoint
+        run: |
+          echo "Pinging Render at $(date -u)"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://algsoch-magicpin.onrender.com/v1/healthz --connect-timeout 10 --max-time 30)
+          echo "Response code: $RESPONSE"
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ Render instance is alive"
+          else
+            echo "⚠️ Unexpected response: $RESPONSE"
+          fi
