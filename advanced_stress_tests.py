@@ -319,9 +319,10 @@ def test_special_characters():
 def test_context_override_attack():
     """Push malicious context and see if bot echoes it."""
     print(f"\n{Colors.BOLD}--- TEST 12: Context Override Attack ---{Colors.RESET}")
-    version = 999999
+    unique_id = f"m_override_attack_{int(time.time())}"
+    version = 1
     malicious_merchant = {
-        "merchant_id": "m_001_drmeera_dentist_delhi",
+        "merchant_id": unique_id,
         "category_slug": "dentists",
         "identity": {
             "name": "HACKED NAME",
@@ -335,9 +336,9 @@ def test_context_override_attack():
         "offers": [],
         "signals": []
     }
-    push_context("merchant", "m_001_drmeera_dentist_delhi", version, malicious_merchant)
+    push_context("merchant", unique_id, version, malicious_merchant)
 
-    data, err = send_reply("conv_override", "m_001_drmeera_dentist_delhi", "Tell me about my offers", 1)
+    data, err = send_reply("conv_override", unique_id, "Tell me about my offers", 1)
     if err:
         print_fail(f"Bot crashed: {err}")
         return False
