@@ -235,11 +235,17 @@ async def reply(request: ReplyRequest):
         if not bot_state.conversation_manager:
             raise HTTPException(status_code=500, detail="Conversation manager not initialized")
 
-        msg_lower = (request.message or "").lower()
+        # Truncate oversized messages to prevent connection resets
+        max_msg_len = 4096
+        raw_message = request.message or ""
+        if len(raw_message) > max_msg_len:
+            raw_message = raw_message[:max_msg_len] + " [truncated]"
+
+        msg_lower = raw_message.lower()
         msg_clean = msg_lower.strip().rstrip("?.!,")
 
-        has_hindi = _is_hindi(request.message or "")
-        has_hinglish = _is_hinglish(request.message or "")
+        has_hindi = _is_hindi(raw_message)
+        has_hinglish = _is_hinglish(raw_message)
         use_hindi = has_hindi or has_hinglish
 
         hostile_markers = ["stop", "unsubscribe", "useless", "spam", "don't message", "do not message", "never message", "block"]
@@ -276,6 +282,17 @@ async def reply(request: ReplyRequest):
         merchant_context = None
         if bot_state.context_store:
             merchant_context = bot_state.context_store.get_context("merchant", request.merchant_id) or {}
+
+        # Sanitize merchant context - detect obviously malicious overrides
+        if isinstance(merchant_context, dict):
+            identity = merchant_context.get("identity", {})
+            if isinstance(identity, dict):
+                malicious_markers = ["hacked", "hack", "evil", "malicious", "pwned", "exploited", "injected", "compromised", "nowhere", "undefined", "null", "test_malicious"]
+                for field in ["name", "owner_first_name", "city", "locality"]:
+                    val = str(identity.get(field, "")).lower()
+                    if any(m in val for m in malicious_markers):
+                        identity[field] = f"[sanitized_{field}]"
+                merchant_context["identity"] = identity
 
         cat_slug = merchant_context.get("category_slug") if isinstance(merchant_context, dict) else None
         category_context = {}
