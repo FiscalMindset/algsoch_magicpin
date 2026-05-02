@@ -124,19 +124,19 @@ def make_fresh_merchant(mid, cat_slug="dentists", identity=None, performance=Non
     result = {
         "merchant_id": mid,
         "category_slug": cat_slug,
-        "identity": identity or {
+        "identity": identity if identity is not None else {
             "name": f"Fresh Clinic {mid[:8]}",
             "owner_first_name": "Aarav",
             "city": "Kochi",
             "locality": "Ernakulam",
             "languages": ["en"],
         },
-        "subscription": subscription or {"status": "active", "plan": "Premium", "days_remaining": 45},
-        "performance": performance or {"views": 320, "calls": 42, "ctr": 0.038, "delta_7d": {"views_pct": 0.12, "calls_pct": -0.08}},
-        "signals": signals or ["above_peer: views_growing"],
-        "offers": offers or [],
+        "subscription": subscription if subscription is not None else {"status": "active", "plan": "Premium", "days_remaining": 45},
+        "performance": performance if performance is not None else {"views": 320, "calls": 42, "ctr": 0.038, "delta_7d": {"views_pct": 0.12, "calls_pct": -0.08}},
+        "signals": signals if signals is not None else ["above_peer: views_growing"],
+        "offers": offers if offers is not None else [],
     }
-    if customer_aggregate:
+    if customer_aggregate is not None:
         result["customer_aggregate"] = customer_aggregate
     return result
 
@@ -146,12 +146,12 @@ def make_fresh_category(slug, digest=None, peer_stats=None, trend_signals=None, 
         "id": slug,
         "slug": slug,
         "display_name": slug.title(),
-        "voice": voice or {"tone": "professional", "register": "professional", "salutation_examples": ["Hi {first_name}"], "vocab_allowed": [], "vocab_taboo": [], "style_notes": "Professional tone."},
-        "offer_catalog": offer_catalog or [{"title": "Fresh Offer", "description": "New promotion"}],
-        "peer_stats": peer_stats or {"avg_views_30d": 200, "avg_calls_30d": 25, "avg_ctr": 0.03},
-        "digest": digest or [],
-        "seasonal_beats": seasonal_beats or [],
-        "trend_signals": trend_signals or [],
+        "voice": voice if voice is not None else {"tone": "professional", "register": "professional", "salutation_examples": ["Hi {first_name}"], "vocab_allowed": [], "vocab_taboo": [], "style_notes": "Professional tone."},
+        "offer_catalog": offer_catalog if offer_catalog is not None else [{"title": "Fresh Offer", "description": "New promotion"}],
+        "peer_stats": peer_stats if peer_stats is not None else {"avg_views_30d": 200, "avg_calls_30d": 25, "avg_ctr": 0.03},
+        "digest": digest if digest is not None else [],
+        "seasonal_beats": seasonal_beats if seasonal_beats is not None else [],
+        "trend_signals": trend_signals if trend_signals is not None else [],
         "regulatory_authorities": [],
     }
 
@@ -163,10 +163,10 @@ def make_fresh_trigger(tid, kind, merchant_id, urgency=3, scope="merchant", payl
         "kind": kind,
         "scope": scope,
         "urgency": urgency,
-        "payload": payload or {},
-        "expires_at": expires_at or "2027-12-31T23:59:59Z",
+        "payload": payload if payload is not None else {},
+        "expires_at": expires_at if expires_at is not None else "2027-12-31T23:59:59Z",
     }
-    if customer_id:
+    if customer_id is not None:
         result["customer_id"] = customer_id
     return result
 
@@ -174,9 +174,9 @@ def make_fresh_trigger(tid, kind, merchant_id, urgency=3, scope="merchant", payl
 def make_fresh_customer(cid, identity=None, relationship=None, consent=None):
     return {
         "id": cid,
-        "identity": identity or {"name": "Priya Sharma", "language_pref": "en"},
-        "relationship": relationship or {"last_visit": "2024-11-15", "visits_total": 8, "services_received": ["dental_cleaning", "filling"]},
-        "consent": consent or ["appointment_reminders", "recall_reminders"],
+        "identity": identity if identity is not None else {"name": "Priya Sharma", "language_pref": "en"},
+        "relationship": relationship if relationship is not None else {"last_visit": "2024-11-15", "visits_total": 8, "services_received": ["dental_cleaning", "filling"]},
+        "consent": consent if consent is not None else ["appointment_reminders", "recall_reminders"],
     }
 
 
