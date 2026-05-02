@@ -4,6 +4,7 @@ from typing import Optional, Dict
 from datetime import datetime
 from app.services import bot_state
 import asyncio
+import json
 
 router = APIRouter()
 
@@ -281,18 +282,27 @@ async def reply(request: ReplyRequest):
         conv_context = bot_state.conversation_manager.get_conversation_context(request.conversation_id)
         merchant_context = None
         if bot_state.context_store:
-            merchant_context = bot_state.context_store.get_context("merchant", request.merchant_id) or {}
+            raw_merchant = bot_state.context_store.get_context("merchant", request.merchant_id)
+            # Work on a copy to avoid modifying stored context
+            merchant_context = json.loads(json.dumps(raw_merchant)) if raw_merchant else {}
 
-        # Sanitize merchant context - detect obviously malicious overrides
+        # Sanitize merchant context copy - detect obviously malicious overrides
         if isinstance(merchant_context, dict):
             identity = merchant_context.get("identity", {})
             if isinstance(identity, dict):
-                malicious_markers = ["hacked", "hack", "evil", "malicious", "pwned", "exploited", "injected", "compromised", "nowhere", "undefined", "null", "test_malicious"]
+                malicious_markers = ["hacked", "hack", "pwned", "exploited", "injected", "compromised", "test_malicious"]
+                suspicious_fields = 0
                 for field in ["name", "owner_first_name", "city", "locality"]:
                     val = str(identity.get(field, "")).lower()
                     if any(m in val for m in malicious_markers):
-                        identity[field] = f"[sanitized_{field}]"
-                merchant_context["identity"] = identity
+                        suspicious_fields += 1
+                # Only sanitize if multiple fields are suspicious (likely attack)
+                if suspicious_fields >= 2:
+                    identity["name"] = "Merchant"
+                    identity["owner_first_name"] = "there"
+                    identity["city"] = ""
+                    identity["locality"] = ""
+                    merchant_context["identity"] = identity
 
         cat_slug = merchant_context.get("category_slug") if isinstance(merchant_context, dict) else None
         category_context = {}

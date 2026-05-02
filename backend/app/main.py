@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
@@ -20,6 +20,21 @@ from pathlib import Path
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
+# Max request body size (64KB)
+MAX_BODY_SIZE = 64 * 1024
+
+class RequestSizeMiddleware(BaseHTTPMiddleware):
+    """Reject requests with body larger than MAX_BODY_SIZE."""
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_BODY_SIZE:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=413,
+                content={"error": "Request body too large", "max_size": MAX_BODY_SIZE}
+            )
+        return await call_next(request)
+
 app = FastAPI(
     title="Vera AI Assistant",
     description="Merchant AI assistant for magicpin",
@@ -34,6 +49,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request size limit middleware
+app.add_middleware(RequestSizeMiddleware)
 
 # Request logging middleware (must be added AFTER CORS)
 app.add_middleware(RequestLoggingMiddleware)
