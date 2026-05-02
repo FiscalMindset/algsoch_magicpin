@@ -623,6 +623,7 @@ def test_fresh_no_offers_at_all():
     merchant = make_fresh_merchant(mid, "fresh_gyms_empty_catalog",
         identity={"name": "Iron Temple Gym", "owner_first_name": "Vikram",
                   "city": "Pune", "locality": "Kothrud", "languages": ["en"]},
+        performance={"views": 110, "calls": 15, "ctr": 0.022},
         offers=[])
     trigger = make_fresh_trigger(_id("trg_dip_no_offers"), "perf_dip", mid, urgency=4,
         payload={"metric": "views", "delta_pct": -0.25, "window": "7d", "vs_baseline": 140})
