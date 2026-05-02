@@ -513,7 +513,7 @@ JSON only:
                 if last_visit:
                     try:
                         lv = datetime.fromisoformat(last_visit.replace("Z", "+00:00"))
-                        months = max(1, int((datetime.now() - lv).days / 30))
+                        months = max(1, int((datetime.now(timezone.utc) - lv).days / 30))
                         months_ago = f" ({months} months ago)"
                     except: pass
                 loc_hint = f" ({m_loc})" if m_loc else ""
@@ -608,7 +608,7 @@ JSON only:
             if patient_segment:
                 seg_display = patient_segment.replace("_", " ")
                 high_risk = cust_agg.get("high_risk_adult_count")
-                if high_risk and "high_risk" in patient_segment:
+                if high_risk and ("high_risk" in patient_segment or ("high" in patient_segment and "risk" in patient_segment)):
                     segment_line = f" You have {high_risk} high-risk patients who could benefit."
                 else:
                     segment_line = f" Relevant to your {seg_display} segment."
@@ -973,10 +973,10 @@ JSON only:
                 item_line = f"\nUpcoming: {item_title}{date_display}{credits_line}."
             urgency_line = ""
             if item and item.get("date"):
-                from datetime import datetime
+from datetime import datetime, timezone
                 try:
                     evt_date = datetime.fromisoformat(item["date"].replace("Z", "+00:00"))
-                    days_left = (evt_date - datetime.now()).days
+                    days_left = (evt_date - datetime.now(timezone.utc)).days
                     if 0 <= days_left <= 7:
                         urgency_line = f" Only {days_left} days left — spots fill fast."
                     elif days_left > 0:
@@ -1019,7 +1019,7 @@ JSON only:
                     body += f" Effective: {deadline[:10]}."
                     try:
                         dl = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
-                        days_left = (dl - datetime.now()).days
+                        days_left = (dl - datetime.now(timezone.utc)).days
                         if days_left > 0:
                             body += f" You have {days_left} days to comply."
                         elif days_left <= 0:
