@@ -1,4 +1,3 @@
-import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
@@ -39,15 +38,6 @@ async def push_context(request: ContextRequest):
             accepted=False,
             reason="invalid_scope",
             details=f"Scope must be one of {valid_scopes}",
-        )
-
-    # Prevent context override injection
-    payload_str = json.dumps(request.payload).lower()
-    if any(bad in payload_str for bad in ["<script", "hacked", "evil", "drop table", "select *"]):
-        return ContextResponse(
-            accepted=False,
-            reason="malicious_content",
-            details="Context payload failed security validation."
         )
 
     # Store context

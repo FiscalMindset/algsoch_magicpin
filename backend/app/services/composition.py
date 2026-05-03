@@ -213,7 +213,10 @@ class CompositionService:
             "research_digest", "competitor_opened", "regulation_change",
             "supply_alert", "cde_opportunity", "gbp_unverified",
             "seasonal_perf_dip", "dormant_with_vera", "winback_eligible",
-            "regulation", "compliance", "alert", "cde"
+            "regulation", "compliance", "alert", "cde",
+            "category_research_digest_release", "weather_heatwave",
+            "local_news_event", "category_trend_movement", "scheduled_recurring",
+            "customer_lapsed_soft"
         }
         if any(hk in kind for hk in high_specificity_kinds):
             force_template = True
@@ -541,6 +544,20 @@ JSON only:
         rationale = ""
         send_as = "vera" if scope == "merchant" else "merchant_on_behalf"
 
+        def payload_item(*keys):
+            for k in keys:
+                val = trig_payload.get(k)
+                if isinstance(val, dict):
+                    return val
+            return None
+
+        def payload_text(*keys):
+            for k in keys:
+                val = trig_payload.get(k)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+            return ""
+
         # ── Helper: peer comparison line ──
         def peer_line_for(metric_name, current_val, peer_key=None):
             pk = peer_key or f"avg_{metric_name}"
@@ -595,7 +612,7 @@ JSON only:
                 body = f"{hi} — {m_name}{loc_hint} here.\nRefill reminder: want us to keep your regular meds ready for pickup/delivery?{price_line}\nReply YES (or STOP to opt out)."
                 cta = "binary_yes_no"
                 rationale = "Chronic refill due."
-            elif kind in ["customer_lapsed_hard", "winback_eligible"]:
+            elif kind in ["customer_lapsed_soft", "customer_lapsed_hard", "winback_eligible"]:
                 visits = rel.get("visits_total", 0)
                 visits_line = f" You've been with us for {visits} visits." if visits > 2 else ""
                 clean_services = []
@@ -653,10 +670,10 @@ JSON only:
             return ComposedMessage(body=taboo_sanitize(body), cta=cta, send_as="merchant_on_behalf", suppression_key=suppression_key, rationale=rationale)
 
         # ── Merchant-facing rules ──
-        if kind == "research_digest":
+        if kind in ["research_digest", "category_research_digest_release"]:
             top_id = trig_payload.get("top_item_id")
             digest = category.get("digest", []) if isinstance(category, dict) else []
-            item = None
+            item = payload_item("top_item", "digest_item", "research_item")
             if top_id and isinstance(digest, list):
                 for d in digest:
                     if isinstance(d, dict) and d.get("id") == top_id:
@@ -669,6 +686,14 @@ JSON only:
             patient_segment = item.get("patient_segment") if item else None
             summary = item.get("summary") if item else None
             actionable = item.get("actionable") if item else None
+            if not title:
+                title = payload_text("title", "headline", "research_title")
+            if not source:
+                source = payload_text("source", "publication")
+            if not patient_segment:
+                patient_segment = payload_text("patient_segment", "segment")
+            if not actionable:
+                actionable = payload_text("actionable", "recommended_action", "next_step")
             bits = []
             if title: bits.append(title)
             if trial_n: bits.append(f"{trial_n}-patient trial")
@@ -822,10 +847,32 @@ JSON only:
             cta = "open_ended"
             rationale = f"Planning intent; context-aware with merchant's own words + low-friction ask."
 
-        elif kind in ["ipl_match_today", "festival_upcoming", "category_seasonal"]:
+        elif kind in ["ipl_match_today", "festival_upcoming", "category_seasonal", "weather_heatwave", "local_news_event", "category_trend_movement", "scheduled_recurring"]:
             search_n = trig_payload.get("search_volume")
             search_line = f" {search_n}+ local searches this week{f' in {m_city}' if m_city else ''}." if search_n else ""
-            if kind == "category_seasonal":
+            if kind == "weather_heatwave":
+                temp = trig_payload.get("temperature_c") or trig_payload.get("temp_c")
+                city = trig_payload.get("city") or m_city
+                event_name = f"Heatwave alert{f' in {city}' if city else ''}{f': {temp}C' if temp else ''}"
+                need = payload_text("recommended_action", "category_angle", "impact_summary") or "Customers are searching for quick, nearby options"
+                search_line = f" {need}."
+            elif kind == "local_news_event":
+                event_name = payload_text("headline", "event", "title") or "Local news event"
+                impact = payload_text("impact_summary", "merchant_angle", "recommended_action")
+                search_line = f" {impact}." if impact else ""
+            elif kind == "category_trend_movement":
+                query = payload_text("query", "trend", "keyword")
+                delta = trig_payload.get("delta_yoy") or trig_payload.get("growth_pct")
+                if isinstance(delta, (int, float)):
+                    delta_line = f" up {int(delta * 100)}% YoY" if abs(delta) <= 2 else f" up {int(delta)}%"
+                else:
+                    delta_line = ""
+                event_name = f"{query.replace('_', ' ').title() if query else 'Category searches'}{delta_line}"
+                search_line = f" in {m_city}." if m_city else "."
+            elif kind == "scheduled_recurring":
+                event_name = payload_text("topic", "cadence", "question_topic") or "Weekly growth check"
+                search_line = ""
+            elif kind == "category_seasonal":
                 season = trig_payload.get("season", "").replace("_", " ").title()
                 trends = trig_payload.get("trends", [])
                 top_trend_name = ""
@@ -1059,7 +1106,7 @@ JSON only:
         elif kind in ["regulation_change", "supply_alert"]:
             top_id = trig_payload.get("top_item_id") or trig_payload.get("alert_id")
             digest = category.get("digest", []) if isinstance(category, dict) else []
-            item = None
+            item = payload_item("top_item", "alert_item", "regulation_item", "digest_item")
             if top_id and isinstance(digest, list):
                 for d in digest:
                     if isinstance(d, dict) and d.get("id") == top_id:
@@ -1204,7 +1251,9 @@ JSON only:
                         peer_proof = f" You're in the top tier for {cat_slug} in {m_city}."
                     elif views_ratio < 0.8:
                         peer_proof = f" There's headroom vs {cat_slug} peers in {m_city}."
-            fact_lines = payload_bits + perf_lines
+            fact_lines = payload_bits[:2] + perf_lines[:2]
+            if not fact_lines:
+                fact_lines = payload_bits + perf_lines
             if fact_lines:
                 facts = "; ".join(fact_lines[:3])
                 body = f"{merchant_salute}{f', {m_loc}' if m_loc else ''} — here's your current snapshot: {facts}.{peer_proof} {offer_line}\nWant me to take a specific action? Reply YES for next steps."

@@ -47,6 +47,27 @@ def _compute_priority(trigger_ctx: Dict[str, Any]) -> float:
     return urgency * 10 + version
 
 
+def _trigger_payload(trigger_ctx: Dict[str, Any]) -> Dict[str, Any]:
+    payload = trigger_ctx.get("payload", {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def _linked_id(trigger_ctx: Dict[str, Any], key: str) -> Optional[str]:
+    payload = _trigger_payload(trigger_ctx)
+    value = trigger_ctx.get(key) or payload.get(key)
+    if value:
+        return str(value)
+    if key == "merchant_id":
+        for alt in ("merchant", "business_id"):
+            if payload.get(alt):
+                return str(payload[alt])
+    if key == "customer_id":
+        for alt in ("customer", "user_id"):
+            if payload.get(alt):
+                return str(payload[alt])
+    return None
+
+
 @router.post("/v1/tick", response_model=TickResponse)
 async def tick(request: TickRequest):
     try:
@@ -74,7 +95,7 @@ async def tick(request: TickRequest):
             if suppression_key in bot_state.sent_suppression_keys:
                 continue
 
-            merchant_id = trigger_ctx.get("merchant_id")
+            merchant_id = _linked_id(trigger_ctx, "merchant_id")
             if not merchant_id:
                 continue
 
@@ -86,7 +107,7 @@ async def tick(request: TickRequest):
             category_ctx = bot_state.context_store.get_context("category", category_slug) if category_slug else {}
 
             customer_ctx = None
-            customer_id = trigger_ctx.get("customer_id")
+            customer_id = _linked_id(trigger_ctx, "customer_id")
             if customer_id:
                 customer_ctx = bot_state.context_store.get_context("customer", customer_id)
                 if trigger_ctx.get("scope") == "customer" and not customer_ctx:

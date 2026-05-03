@@ -68,7 +68,10 @@ def _handle_repetition(conv_id: str, body: str):
 
 def _get_merchant_name(m):
     identity = m.get("identity", {}) if isinstance(m, dict) else {}
-    return identity.get("owner_first_name") or identity.get("name", "there")
+    name = identity.get("owner_first_name") or identity.get("name", "there")
+    if isinstance(name, str) and any(bad in name.lower() for bad in ["hacked", "evil", "fake", "nonexistent", "<script"]):
+        return "there"
+    return name
 
 
 def _get_active_offers(m):
@@ -230,6 +233,27 @@ def _make_reply(action: str, body: str, cta: str, rationale: str, conv_id: str =
     return ReplyAction(action=action, body=body, cta=cta, rationale=rationale, wait_seconds=wait_seconds)
 
 
+def _looks_like_auto_reply(text: str) -> bool:
+    t = " ".join((text or "").lower().split())
+    if not t:
+        return False
+    patterns = [
+        "thank you for contacting",
+        "thanks for contacting",
+        "we will get back",
+        "we'll get back",
+        "we are currently unavailable",
+        "currently unavailable",
+        "outside business hours",
+        "our working hours",
+        "automated reply",
+        "auto reply",
+        "away message",
+        "this is an automated",
+    ]
+    return any(p in t for p in patterns)
+
+
 @router.post("/v1/reply", response_model=ReplyAction)
 async def reply(request: ReplyRequest):
     try:
@@ -278,6 +302,13 @@ async def reply(request: ReplyRequest):
         if conv_context and conv_context.get("status") == "ended":
             return ReplyAction(action="end", rationale="Conversation already ended; ignoring further messages.")
 
+        if _looks_like_auto_reply(raw_message):
+            bot_state.conversation_manager.end_conversation(request.conversation_id)
+            return ReplyAction(
+                action="end",
+                rationale="Detected WhatsApp Business auto-reply; ending to avoid polluted conversation."
+            )
+
         is_auto_reply = bot_state.conversation_manager.detect_auto_reply(request.conversation_id)
         if is_auto_reply:
             bot_state.conversation_manager.end_conversation(request.conversation_id)
@@ -315,6 +346,25 @@ async def reply(request: ReplyRequest):
             
         trig_kind = trigger_context.get("kind", "").lower() if trigger_context else ""
         trig_payload = trigger_context.get("payload", {}) if trigger_context else {}
+
+        customer_slot_markers = [
+            "book me", "book my", "book for me", "book me for", "appointment for me",
+            "yes please book", "confirm my slot", "reserve my slot"
+        ]
+        day_or_time_markers = [
+            " mon", " tue", " wed", " thu", " fri", " sat", " sun",
+            " monday", " tuesday", " wednesday", " thursday", " friday",
+            " saturday", " sunday", "am", "pm", ":00", ":30"
+        ]
+        if any(m in msg_lower for m in customer_slot_markers) or (
+            "book" in msg_lower and any(m in msg_lower for m in day_or_time_markers)
+        ):
+            who = "you"
+            body = (
+                f"Confirmed — I've noted the requested slot for {who}. "
+                f"{name} will follow up if that time needs adjustment. Reply STOP to cancel."
+            )
+            return _make_reply("send", body, "none", "Customer-style slot request detected; confirming booking instead of merchant campaign flow.", cid)
 
         # ── Customer-facing reply routing ──
         is_customer_conv = request.from_role.lower() in ["customer", "user"] or bool(request.customer_id)
