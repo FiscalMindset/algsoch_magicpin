@@ -24,8 +24,7 @@ class ContextStore:
 
     def store_context(self, scope: str, context_id: str, version: int, payload: Dict[str, Any]) -> bool:
         key = (scope, context_id)
-        current_version = self.versions.get(key, 0)
-        if version <= current_version:
+        if key in self.versions and version < self.versions[key]:
             return False
         self.contexts[key] = payload
         self.versions[key] = version
@@ -214,8 +213,9 @@ class CompositionService:
             "research_digest", "competitor_opened", "regulation_change",
             "supply_alert", "cde_opportunity", "gbp_unverified",
             "seasonal_perf_dip", "dormant_with_vera", "winback_eligible",
+            "regulation", "compliance", "alert", "cde"
         }
-        if kind in high_specificity_kinds:
+        if any(hk in kind for hk in high_specificity_kinds):
             force_template = True
 
         if self.groq_api_key and not force_template:
@@ -564,10 +564,8 @@ JSON only:
         # ── Customer-facing messages ──
         if scope == "customer":
             c_name = norm(customer_identity().get("name"))
-            if not c_name:
-                return ComposedMessage(body="", cta="none", send_as="merchant_on_behalf", suppression_key=suppression_key, rationale="Customer scope trigger but customer context missing.")
 
-            hi = salutation(c_name, is_doctor=False)
+            hi = salutation(c_name, is_doctor=False) if c_name else "Hi there"
             price_hint = offer_title or ""
             price_line = f" Offer: {price_hint}." if price_hint else ""
             rel = customer.get("relationship", {}) if isinstance(customer, dict) else {}

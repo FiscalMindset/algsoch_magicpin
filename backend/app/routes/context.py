@@ -34,13 +34,10 @@ async def push_context(request: ContextRequest):
     # Validate scope
     valid_scopes = ["category", "merchant", "customer", "trigger"]
     if request.scope not in valid_scopes:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "accepted": False,
-                "reason": "invalid_scope",
-                "details": f"Scope must be one of {valid_scopes}",
-            },
+        return ContextResponse(
+            accepted=False,
+            reason="invalid_scope",
+            details=f"Scope must be one of {valid_scopes}",
         )
 
     # Store context

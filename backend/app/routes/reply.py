@@ -274,12 +274,19 @@ async def reply(request: ReplyRequest):
             request.conversation_id, request.from_role, request.message, request.turn_number
         )
 
+        conv_context = bot_state.conversation_manager.get_conversation_context(request.conversation_id)
+        if conv_context and conv_context.get("status") == "ended":
+            return ReplyAction(action="wait", wait_seconds=86400, rationale="Conversation already ended; ignoring further messages.")
+
         is_auto_reply = bot_state.conversation_manager.detect_auto_reply(request.conversation_id)
         if is_auto_reply:
             bot_state.conversation_manager.end_conversation(request.conversation_id)
-            return ReplyAction(action="end", rationale="Detected auto-reply pattern. Exiting conversation gracefully.")
-
-        conv_context = bot_state.conversation_manager.get_conversation_context(request.conversation_id)
+            return ReplyAction(
+                action="end",
+                body="It looks like this is an automated response. I'll pause messages for now. Let us know when you're back!",
+                cta="none",
+                rationale="Detected auto-reply pattern. Exiting conversation gracefully."
+            )
         merchant_context = None
         if bot_state.context_store:
             raw_merchant = bot_state.context_store.get_context("merchant", request.merchant_id)
@@ -299,8 +306,24 @@ async def reply(request: ReplyRequest):
         location = f"{locality}, {city}" if locality and city else city or ""
         cid = request.conversation_id
 
+        # Extract trigger_context specifically for this conversation
+        trigger_context = {}
+        if conv_context and bot_state.context_store:
+            trigger_id = conv_context.get("trigger_id")
+            if trigger_id:
+                trigger_context = bot_state.context_store.get_context("trigger", trigger_id) or {}
+        if not trigger_context:
+            trigger_context = _find_best_trigger_for_merchant(request.merchant_id)
+            
+        trig_kind = trigger_context.get("kind", "").lower() if trigger_context else ""
+        trig_payload = trigger_context.get("payload", {}) if trigger_context else {}
+
         # ── Customer-facing reply routing ──
-        if request.from_role == "customer":
+        is_customer_conv = request.from_role == "customer" or bool(request.customer_id)
+        if conv_context and conv_context.get("customer_id"):
+            is_customer_conv = True
+
+        if is_customer_conv:
             customer_name = ""
             customer_context = None
             if bot_state.context_store and request.customer_id:
@@ -368,13 +391,11 @@ async def reply(request: ReplyRequest):
             return _make_reply("send", body, "binary_yes_no", "Objection on budget; reframing with free options.", cid)
 
         # Context-specific merchant question handling - address what merchant actually asked
-        trigger_ctx = _find_best_trigger_for_merchant(request.merchant_id)
-        trig_kind = trigger_ctx.get("kind", "") if trigger_ctx else ""
-        trig_payload = trigger_ctx.get("payload", {}) if trigger_ctx else {}
+        # (trigger_context and trig_kind are loaded above)
 
         # If merchant asks about specific setup/equipment related to regulation
         setup_markers = ["setup", "equipment", "unit", "machine", "device", "x-ray", "film", "audit", "checking", "check my", "help", "need help", "how to"]
-        if any(m in msg_lower for m in setup_markers) and trig_kind == "regulation_change":
+        if any(m in msg_lower for m in setup_markers) and "regulation" in trig_kind:
             deadline = trig_payload.get("deadline_iso", "")
             deadline_display = f" by {deadline[:10]}" if deadline else ""
             actionable = ""
@@ -436,14 +457,13 @@ async def reply(request: ReplyRequest):
             return _make_reply("send", body, "open_ended", "Merchant asked about performance; sharing numbers + contextual suggestion.", cid)
 
         if any(k in msg_lower for k in ["hi", "hello", "hey", "what's new", "what is new", "any update"]):
-            trigger_ctx = _find_best_trigger_for_merchant(request.merchant_id)
             if use_hindi:
-                body = _hindi_greeting(name, location, cat_slug, active_offers, signals, trigger_ctx, category_context)
-            elif trigger_ctx:
-                trigger_kind = trigger_ctx.get("kind", "update").replace("_", " ")
-                trigger_payload = trigger_ctx.get("payload", {})
+                body = _hindi_greeting(name, location, cat_slug, active_offers, signals, trigger_context, category_context)
+            elif trigger_context:
+                trigger_kind = trigger_context.get("kind", "update").replace("_", " ")
+                trigger_payload = trigger_context.get("payload", {})
                 body = f"Hi {name}! Quick update for {location}:\nTrigger: {trigger_kind}\n"
-                if trigger_ctx.get("kind") == "research_digest":
+                if trigger_context.get("kind") == "research_digest":
                     digest = category_context.get("digest", []) if isinstance(category_context, dict) else []
                     top_id = trigger_payload.get("top_item_id")
                     if top_id and digest:
@@ -509,9 +529,6 @@ async def reply(request: ReplyRequest):
             return _make_reply("send", body, "binary_yes_no", "Merchant committed; switching to execution.", cid)
 
         if msg_clean in ["yes", "sure", "ok", "okay", "go", "yeah", "haan", "ha"] or any(k in msg_lower for k in ["tell me more", "more details", "what are"]):
-            trigger_ctx = _find_best_trigger_for_merchant(request.merchant_id)
-            trig_kind = trigger_ctx.get("kind", "").replace("_", " ") if trigger_ctx else ""
-            trig_payload = trigger_ctx.get("payload", {}) if trigger_ctx else {}
             topic = trig_payload.get("question_topic") or trig_payload.get("milestone", "")
             if topic:
                 topic = topic.replace("_", " ")
@@ -539,13 +556,6 @@ async def reply(request: ReplyRequest):
 
         if bot_state.composition_service:
             conversation_history = bot_state.conversation_manager.get_conversation(request.conversation_id)
-            trigger_context = {}
-            if conv_context and bot_state.context_store:
-                trigger_id = conv_context.get("trigger_id")
-                if trigger_id:
-                    trigger_context = bot_state.context_store.get_context("trigger", trigger_id) or {}
-            if not trigger_context:
-                trigger_context = _find_best_trigger_for_merchant(request.merchant_id)
 
             composed = await bot_state.composition_service.compose(
                 category=category_context,
