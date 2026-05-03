@@ -20,8 +20,8 @@ from pathlib import Path
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
-# Max request body size (64KB)
-MAX_BODY_SIZE = 64 * 1024
+# Max request body size (512KB for Context Pushes as per testing brief)
+MAX_BODY_SIZE = 512 * 1024
 
 class RequestSizeMiddleware(BaseHTTPMiddleware):
     """Reject requests with body larger than MAX_BODY_SIZE."""

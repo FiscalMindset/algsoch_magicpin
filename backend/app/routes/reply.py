@@ -276,15 +276,13 @@ async def reply(request: ReplyRequest):
 
         conv_context = bot_state.conversation_manager.get_conversation_context(request.conversation_id)
         if conv_context and conv_context.get("status") == "ended":
-            return ReplyAction(action="wait", wait_seconds=86400, rationale="Conversation already ended; ignoring further messages.")
+            return ReplyAction(action="end", rationale="Conversation already ended; ignoring further messages.")
 
         is_auto_reply = bot_state.conversation_manager.detect_auto_reply(request.conversation_id)
         if is_auto_reply:
             bot_state.conversation_manager.end_conversation(request.conversation_id)
             return ReplyAction(
                 action="end",
-                body="It looks like this is an automated response. I'll pause messages for now. Let us know when you're back!",
-                cta="none",
                 rationale="Detected auto-reply pattern. Exiting conversation gracefully."
             )
         merchant_context = None
@@ -319,7 +317,7 @@ async def reply(request: ReplyRequest):
         trig_payload = trigger_context.get("payload", {}) if trigger_context else {}
 
         # ── Customer-facing reply routing ──
-        is_customer_conv = request.from_role == "customer" or bool(request.customer_id)
+        is_customer_conv = request.from_role.lower() in ["customer", "user"] or bool(request.customer_id)
         if conv_context and conv_context.get("customer_id"):
             is_customer_conv = True
 
@@ -332,11 +330,11 @@ async def reply(request: ReplyRequest):
                     cust_id = customer_context.get("identity", {})
                     customer_name = cust_id.get("name", "")
 
-            # Slot booking / appointment confirmation - MUST use confirm action
+            # Slot booking / appointment confirmation - MUST use send action
             booking_markers = ["book me", "book for", "appointment", "slot", " nov ", " dec ", " jan ", " feb ", " mar ", " apr ", " may ", " jun ", " jul ", " aug ", " sep ", " oct ", "pm", "am", ":00", ":30", "tomorrow", "next week", "time"]
             if any(m in msg_lower for m in booking_markers):
                 body = f"Confirmed! I've noted your appointment. {customer_name or 'See you'} at the scheduled time. Reply STOP to cancel."
-                return _make_reply("confirm", body, "none", "Customer confirmed slot; sending confirmation.", cid)
+                return _make_reply("send", body, "none", "Customer confirmed slot; sending confirmation.", cid)
 
             # Customer stop
             if any(m in msg_lower for m in hostile_markers):
@@ -347,7 +345,7 @@ async def reply(request: ReplyRequest):
             commitment_markers = ["yes please", "yes book", "book", "confirm", "ok book", "okay book"]
             if any(m in msg_lower for m in commitment_markers):
                 body = f"Great! I've booked your slot. {customer_name or 'See you'} soon! Reply STOP to cancel anytime."
-                return _make_reply("confirm", body, "none", "Customer committed to booking; confirming.", cid)
+                return _make_reply("send", body, "none", "Customer committed to booking; confirming.", cid)
 
             # Customer question
             question_markers = ["what", "how", "when", "where", "why", "cost", "price", "fee", "charge"]

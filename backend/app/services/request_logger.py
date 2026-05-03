@@ -44,7 +44,7 @@ class RequestLogEntry:
             return None
         s = json.dumps(data) if not isinstance(data, str) else data
         if len(s) > max_len:
-            return json.loads(s[:max_len] + '..."[truncated]') if s.startswith('{') else s[:max_len] + "..."
+            return s[:max_len] + '..."[truncated]'
         return data
 
     @staticmethod
