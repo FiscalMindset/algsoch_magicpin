@@ -206,13 +206,25 @@ class CompositionService:
         """Compose a message using the 4-context framework with LLM."""
         prompt = self._build_composition_prompt(category, merchant, trigger, customer, conversation_history)
 
+        kind = (trigger.get("kind") or "update").lower()
+        scope = (trigger.get("scope") or "merchant").lower()
+
+        # Force template for trigger kinds requiring high specificity
+        high_specificity_kinds = {
+            "research_digest", "competitor_opened", "regulation_change",
+            "supply_alert", "cde_opportunity", "gbp_unverified",
+            "seasonal_perf_dip", "dormant_with_vera", "winback_eligible",
+        }
+        if kind in high_specificity_kinds:
+            force_template = True
+
         if self.groq_api_key and not force_template:
             response = await self._call_groq(prompt)
             if response:
                 message = self._parse_llm_response(response)
                 if message.body:
                     validated = self._validate_and_fix(message, category, merchant, trigger, conversation_history)
-                    if validated.body:
+                    if validated.body and self._check_context_grounding(validated.body, trigger, customer, scope):
                         return validated
             return self._template_based_compose(category, merchant, trigger, customer, conversation_history)
 
@@ -222,7 +234,7 @@ class CompositionService:
                 message = self._parse_llm_response(response)
                 if message.body:
                     validated = self._validate_and_fix(message, category, merchant, trigger, conversation_history)
-                    if validated.body:
+                    if validated.body and self._check_context_grounding(validated.body, trigger, customer, scope):
                         return validated
             return self._template_based_compose(category, merchant, trigger, customer, conversation_history)
 
@@ -397,6 +409,52 @@ JSON only:
                 if sentence_start > 0:
                     body = body[sentence_start+2:]
         return ComposedMessage(body=body, cta=message.cta, send_as=message.send_as, suppression_key=message.suppression_key, rationale=message.rationale)
+
+    def _check_context_grounding(self, body: str, trigger: Dict[str, Any], customer: Optional[Dict[str, Any]], scope: str) -> bool:
+        """Check if LLM response uses specific context data. Returns False if body is too generic."""
+        body_lower = body.lower()
+        kind = (trigger.get("kind") or "").lower()
+        payload = trigger.get("payload", {}) if isinstance(trigger, dict) else {}
+
+        if kind == "research_digest":
+            top_id = payload.get("top_item_id", "")
+            if top_id:
+                # Check if body references anything from the digest item
+                return any(kw in body_lower for kw in ["trial", "patient", "study", "research", "abstract", "nano", "hAp", "remineral"])
+
+        if kind == "competitor_opened":
+            comp_name = payload.get("competitor_name", "")
+            if comp_name:
+                return comp_name.lower() in body_lower
+
+        if kind == "perf_dip":
+            return any(kw in body_lower for kw in ["recover", "recovery", "draft", "refresh", "campaign", "post"])
+
+        if kind == "perf_spike":
+            return any(kw in body_lower for kw in ["momentum", "capitalize", "surge", "peaking", "convert"])
+
+        if kind == "festival_upcoming":
+            return any(kw in body_lower for kw in ["festival", "season", "celebration", "offer"])
+
+        if kind == "review_theme_emerged":
+            theme = payload.get("theme", "")
+            if theme:
+                return theme.lower() in body_lower or any(kw in body_lower for kw in ["review", "pattern", "theme", "feedback"])
+
+        if kind == "active_planning_intent":
+            return any(kw in body_lower for kw in ["draft", "plan", "price", "package", "tier"])
+
+        if kind in ["ipl_match_today", "category_seasonal"]:
+            return any(kw in body_lower for kw in ["season", "match", "offer", "campaign", "festival"])
+
+        if scope == "customer":
+            if customer:
+                c_name = (customer.get("identity", {}).get("name") or "").lower()
+                if c_name:
+                    return c_name in body_lower or "you" in body_lower
+            return any(kw in body_lower for kw in ["appointment", "visit", "booking", "confirm", "yes"])
+
+        return True
 
     def _template_based_compose(
         self,
