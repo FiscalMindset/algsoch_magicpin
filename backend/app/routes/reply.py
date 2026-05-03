@@ -283,26 +283,7 @@ async def reply(request: ReplyRequest):
         merchant_context = None
         if bot_state.context_store:
             raw_merchant = bot_state.context_store.get_context("merchant", request.merchant_id)
-            # Work on a copy to avoid modifying stored context
             merchant_context = json.loads(json.dumps(raw_merchant)) if raw_merchant else {}
-
-        # Sanitize merchant context copy - detect obviously malicious overrides
-        if isinstance(merchant_context, dict):
-            identity = merchant_context.get("identity", {})
-            if isinstance(identity, dict):
-                malicious_markers = ["hacked", "hack", "pwned", "exploited", "injected", "compromised", "test_malicious"]
-                suspicious_fields = 0
-                for field in ["name", "owner_first_name", "city", "locality"]:
-                    val = str(identity.get(field, "")).lower()
-                    if any(m in val for m in malicious_markers):
-                        suspicious_fields += 1
-                # Only sanitize if multiple fields are suspicious (likely attack)
-                if suspicious_fields >= 2:
-                    identity["name"] = "Merchant"
-                    identity["owner_first_name"] = "there"
-                    identity["city"] = ""
-                    identity["locality"] = ""
-                    merchant_context["identity"] = identity
 
         cat_slug = merchant_context.get("category_slug") if isinstance(merchant_context, dict) else None
         category_context = {}
@@ -318,7 +299,59 @@ async def reply(request: ReplyRequest):
         location = f"{locality}, {city}" if locality and city else city or ""
         cid = request.conversation_id
 
-        objections = ["no budget", "too expensive", "cant afford", "can't afford", "not worth it", "waste of money", "dont need this", "don't need this", "have budget", "don't have budget", "cannot afford", "not now, budget"]
+        # ── Customer-facing reply routing ──
+        if request.from_role == "customer":
+            customer_name = ""
+            customer_context = None
+            if bot_state.context_store and request.customer_id:
+                customer_context = bot_state.context_store.get_context("customer", request.customer_id)
+                if customer_context:
+                    cust_id = customer_context.get("identity", {})
+                    customer_name = cust_id.get("name", "")
+
+            # Slot booking / appointment confirmation - MUST use confirm action
+            booking_markers = ["book me", "book for", "appointment", "slot", " nov ", " dec ", " jan ", " feb ", " mar ", " apr ", " may ", " jun ", " jul ", " aug ", " sep ", " oct ", "pm", "am", ":00", ":30", "tomorrow", "next week", "time"]
+            if any(m in msg_lower for m in booking_markers):
+                body = f"Confirmed! I've noted your appointment. {customer_name or 'See you'} at the scheduled time. Reply STOP to cancel."
+                return _make_reply("confirm", body, "none", "Customer confirmed slot; sending confirmation.", cid)
+
+            # Customer stop
+            if any(m in msg_lower for m in hostile_markers):
+                bot_state.conversation_manager.end_conversation(request.conversation_id)
+                return ReplyAction(action="end", rationale="Customer asked to stop; ending conversation.")
+
+            # Customer commitment (yes please, yes book)
+            commitment_markers = ["yes please", "yes book", "book", "confirm", "ok book", "okay book"]
+            if any(m in msg_lower for m in commitment_markers):
+                body = f"Great! I've booked your slot. {customer_name or 'See you'} soon! Reply STOP to cancel anytime."
+                return _make_reply("confirm", body, "none", "Customer committed to booking; confirming.", cid)
+
+            # Customer question
+            question_markers = ["what", "how", "when", "where", "why", "cost", "price", "fee", "charge"]
+            if any(m in msg_lower for m in question_markers):
+                offer_ref = f"\nOffer: {active_offers[0]}." if active_offers else ""
+                body = f"Hi{f' {customer_name}' if customer_name else ''}! {name} here.{offer_ref}\nHappy to answer — what would you like to know?"
+                return _make_reply("send", body, "open_ended", "Customer asked question; responding with context.", cid)
+
+            # Customer greeting
+            if any(k in msg_lower for k in ["hi", "hello", "hey", "namaste"]):
+                offer_ref = f" Current offer: {active_offers[0]}." if active_offers else ""
+                body = f"Hi{f' {customer_name}' if customer_name else ''}! {name} here.{offer_ref}\nHow can we help you today?"
+                return _make_reply("send", body, "open_ended", "Customer greeted; welcoming with offer info.", cid)
+
+            # Default customer reply
+            offer_ref = f" Offer: {active_offers[0]}." if active_offers else ""
+            body = f"Thanks{f' {customer_name}' if customer_name else ''}! {name} here.{offer_ref}\nWe'll get back to you shortly."
+            return _make_reply("send", body, "open_ended", "Default customer response.", cid)
+
+        # ── Merchant-facing reply routing ──
+        # Detect merchant intent and respond contextually
+        msg_has_hindi = _is_hindi(raw_message)
+        msg_has_hinglish = _is_hinglish(raw_message)
+        merchant_use_hindi = msg_has_hindi or msg_has_hinglish
+
+        # Objection handling
+        objections = ["no budget", "too expensive", "cant afford", "can't afford", "not worth it", "waste of money", "dont need this", "don't need this", "don't have budget", "cannot afford", "not now, budget"]
         if any(m in msg_lower for m in objections):
             if use_hindi:
                 body = (
@@ -333,6 +366,44 @@ async def reply(request: ReplyRequest):
                     f"Want me to show you what you can do at zero spend?"
                 )
             return _make_reply("send", body, "binary_yes_no", "Objection on budget; reframing with free options.", cid)
+
+        # Context-specific merchant question handling - address what merchant actually asked
+        trigger_ctx = _find_best_trigger_for_merchant(request.merchant_id)
+        trig_kind = trigger_ctx.get("kind", "") if trigger_ctx else ""
+        trig_payload = trigger_ctx.get("payload", {}) if trigger_ctx else {}
+
+        # If merchant asks about specific setup/equipment related to regulation
+        setup_markers = ["setup", "equipment", "unit", "machine", "device", "x-ray", "film", "audit", "checking", "check my", "help", "need help", "how to"]
+        if any(m in msg_lower for m in setup_markers) and trig_kind == "regulation_change":
+            deadline = trig_payload.get("deadline_iso", "")
+            deadline_display = f" by {deadline[:10]}" if deadline else ""
+            actionable = ""
+            digest = category_context.get("digest", []) if isinstance(category_context, dict) else []
+            top_id = trig_payload.get("top_item_id") or trig_payload.get("alert_id")
+            if top_id and digest:
+                for d in digest:
+                    if isinstance(d, dict) and d.get("id") == top_id:
+                        actionable = d.get("actionable", "")
+                        break
+            action_line = f" Action: {actionable}" if actionable else ""
+            body = (
+                f"{name}, good that you're proactive about compliance.{action_line}.\n"
+                f"Deadline{deadline_display} — I recommend scheduling an audit this week.\n"
+                f"Want me to draft a compliance checklist + patient notification message?"
+            )
+            return _make_reply("send", body, "binary_yes_no", "Merchant asked about regulation compliance setup; providing actionable guidance.", cid)
+
+        # If merchant asks about performance/dip related to trigger
+        if any(m in msg_lower for m in ["why", "what happened", "what caused", "reason"]) and trig_kind in ["perf_dip", "seasonal_perf_dip"]:
+            metric = trig_payload.get("metric", "views")
+            delta = trig_payload.get("delta_pct")
+            pct = int(round(float(delta) * 100)) if delta is not None else 0
+            body = (
+                f"{name}, your {metric} dropped {abs(pct)}% recently. This often happens due to stale posts, outdated offers, or seasonal shifts.\n"
+                f"Quick fix: Refresh your top offer + post 2 GBP updates this week.\n"
+                f"Want me to draft both?"
+            )
+            return _make_reply("send", body, "binary_yes_no", "Merchant asked about performance dip cause; explaining + offering fix.", cid)
 
         if any(k in msg_lower for k in ["offer", "my offer", "current offer", "what offer"]):
             if use_hindi:

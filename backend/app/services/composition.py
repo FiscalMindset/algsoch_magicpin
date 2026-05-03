@@ -91,11 +91,25 @@ class ConversationManager:
 
     def detect_auto_reply(self, conversation_id: str) -> bool:
         conversation = self.get_conversation(conversation_id)
-        if not conversation or len(conversation) < 3:
+        if not conversation or len(conversation) < 2:
             return False
         merchant_messages = [
             turn["message"] for turn in conversation[-5:] if turn["from_role"] == "merchant"
         ]
+        if len(merchant_messages) >= 2:
+            # Check for identical messages
+            if len(set(merchant_messages[-2:])) == 1:
+                return True
+            # Check for very similar messages (common auto-reply patterns)
+            last_two = merchant_messages[-2:]
+            if len(last_two[0]) > 20 and len(last_two[1]) > 20:
+                # If messages share >80% of words, treat as auto-reply
+                words0 = set(last_two[0].lower().split())
+                words1 = set(last_two[1].lower().split())
+                if words0 and words1:
+                    overlap = len(words0 & words1) / max(len(words0), len(words1))
+                    if overlap > 0.8:
+                        return True
         if len(merchant_messages) >= 3:
             return len(set(merchant_messages[-3:])) == 1
         return False
